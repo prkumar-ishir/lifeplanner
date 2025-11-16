@@ -13,22 +13,25 @@ export function usePlannerDataSync() {
   const setEntries = usePlannerStore((state) => state.setEntries);
   const setWeeklyPlans = usePlannerStore((state) => state.setWeeklyPlans);
   const [hasSynced, setHasSynced] = useState(false);
+  const userId = user?.id;
 
   useEffect(() => {
-    if (!user) {
+    const ensuredUserId = userId;
+    if (!ensuredUserId) {
       setEntries({});
       setWeeklyPlans({});
       setHasSynced(false);
       return;
     }
+    const userIdForFetch = ensuredUserId as string;
 
     let isMounted = true;
 
     async function load() {
       try {
         const [entries, weeklyPlans] = await Promise.all([
-          fetchPlannerEntries(user.id),
-          fetchWeeklyPlans(user.id),
+          fetchPlannerEntries(userIdForFetch),
+          fetchWeeklyPlans(userIdForFetch),
         ]);
         if (!isMounted) return;
         setEntries(entries);
@@ -47,7 +50,7 @@ export function usePlannerDataSync() {
     return () => {
       isMounted = false;
     };
-  }, [setEntries, setWeeklyPlans, user]);
+  }, [setEntries, setWeeklyPlans, userId]);
 
   return { isHydrated: hasSynced || !user };
 }
