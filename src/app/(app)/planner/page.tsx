@@ -552,11 +552,14 @@ function buildSectorPath(
 ) {
   const start = polarToCartesian(cx, cy, radius, startAngle);
   const end = polarToCartesian(cx, cy, radius, endAngle);
-  const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
+  const normalizedDelta =
+    ((endAngle - startAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  const largeArcFlag = normalizedDelta > Math.PI ? 1 : 0;
+  const sweepFlag = 0; // Force counterclockwise sweep so curves stay convex relative to the center.
   return [
     `M ${cx} ${cy}`,
     `L ${start.x} ${start.y}`,
-    `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`,
+    `A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${end.x} ${end.y}`,
     "Z",
   ].join(" ");
 }

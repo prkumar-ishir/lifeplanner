@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { plannerFlow } from "@/data/plannerFlow";
@@ -12,6 +13,7 @@ export default function DashboardPage() {
   const weeklyPlans = usePlannerStore((state) => state.weeklyPlans);
   const setStepIndex = usePlannerStore((state) => state.setStepIndex);
   const router = useRouter();
+  const [goalScores, setGoalScores] = useGoalScores();
 
   const completedSteps = Object.keys(entries).length;
   const progress = Math.round((completedSteps / plannerFlow.length) * 100);
@@ -20,6 +22,35 @@ export default function DashboardPage() {
   )[0];
 
   const isProgressComplete = progress >= 100;
+  const goalStep = plannerFlow.find((step) => step.id === "goal-setting");
+  const goalEntries = entries["goal-setting"];
+
+  const spotlightGoals = useMemo(() => {
+    if (!goalStep || !goalEntries) {
+      return [];
+    }
+
+    return goalStep.fields
+      .map((field) => {
+        const rawValue = String(goalEntries[field.id] ?? "").trim();
+        if (!rawValue) {
+          return null;
+        }
+        return {
+          id: field.id,
+          label: field.label.replace(/ goal$/i, ""),
+          summary: rawValue,
+        };
+      })
+      .filter((goal): goal is GoalSpotlightGoal => Boolean(goal));
+  }, [goalEntries, goalStep]);
+
+  const handleGoalScoreChange = (goalId: string, score: number) => {
+    setGoalScores((prev) => ({
+      ...prev,
+      [goalId]: score,
+    }));
+  };
 
   return (
     <div className="space-y-8">
@@ -120,6 +151,14 @@ export default function DashboardPage() {
         </article>
       </section>
 
+      {spotlightGoals.length > 0 && (
+        <GoalSpotlightRow
+          goals={spotlightGoals}
+          scores={goalScores}
+          onScoreChange={handleGoalScoreChange}
+        />
+      )}
+
       {/* Flow overview: grid of steps becomes clickable once a step is captured. */}
       <section className="glass-panel flex max-h-[560px] flex-col overflow-hidden p-6">
         <header>
@@ -184,4 +223,102 @@ export default function DashboardPage() {
       </section>
     </div>
   );
+}
+
+type GoalSpotlightGoal = {
+  id: string;
+  label: string;
+  summary: string;
+};
+
+type GoalSpotlightRowProps = {
+  goals: GoalSpotlightGoal[];
+  scores: Record<string, number>;
+  onScoreChange: (goalId: string, score: number) => void;
+};
+
+const goalColorMap: Record<string, string> = {
+  goal_self: "#a855f7",
+  goal_body: "#f97316",
+  goal_family: "#0ea5e9",
+  goal_professional: "#22c55e",
+};
+
+function GoalSpotlightRow({ goals, scores, onScoreChange }: GoalSpotlightRowProps) {
+  return (
+    <section className="glass-panel p-6">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Goal spotlight
+      </p>
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {goals.map((goal) => {
+          const score = scores[goal.id] ?? 7;
+          return (
+            <article
+              key={goal.id}
+              className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: goalColorMap[goal.id] || "#334155" }}
+                    />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {goal.label}
+                    </p>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {goal.summary.length > 180 ? `${goal.summary.slice(0, 177)}…` : goal.summary}
+                  </p>
+                </div>
+                <span className="text-base font-semibold text-slate-900">{score}/10</span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={score}
+                aria-label={`${goal.label} score`}
+                onChange={(event) => onScoreChange(goal.id, Number(event.target.value))}
+                className="mt-4 w-full accent-slate-900"
+              />
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function useGoalScores() {
+  const [scores, setScores] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem("goalScores");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (typeof parsed === "object" && parsed !== null) {
+          setScores(parsed);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to read goal scores", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("goalScores", JSON.stringify(scores));
+    } catch (error) {
+      console.warn("Failed to persist goal scores", error);
+    }
+  }, [scores]);
+
+  return [scores, setScores] as const;
 }
