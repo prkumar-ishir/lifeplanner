@@ -22,11 +22,16 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/**
+ * AuthProvider bootstraps the Supabase client in the browser and
+ * exposes session helpers to the rest of the React tree.
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = getSupabaseBrowserClient();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(() => Boolean(supabase));
 
+  // Load the initial session and subscribe to auth state changes for real-time updates.
   useEffect(() => {
     if (!supabase) {
       return;
@@ -138,6 +143,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/**
+ * useAuth is a thin helper that enforces provider usage and exposes the context.
+ */
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {

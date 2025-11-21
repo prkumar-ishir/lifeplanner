@@ -71,6 +71,9 @@ const journeySections = [
   },
 ];
 
+/**
+ * Home introduces the Life Planner journey, highlighting the three pillars and CTAs into the workspace.
+ */
 export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-16 px-6 py-20 lg:px-12">

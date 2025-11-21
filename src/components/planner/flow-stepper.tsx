@@ -8,7 +8,10 @@ type Props = {
   onNavigate?: (index: number) => void;
 };
 
-// Horizontal stepper keeps all eight planner milestones within reach.
+/**
+ * FlowStepper renders a horizontal chip-like navigation row so users
+ * can see progress across all planner milestones and revisit unlocked steps.
+ */
 export function FlowStepper({
   steps,
   currentIndex,

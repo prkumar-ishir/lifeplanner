@@ -1,5 +1,9 @@
 import type { PlannerStep } from "@/types/planner";
 
+/**
+ * plannerFlow is the single source of truth for every planner step.
+ * UI layers (stepper, forms, dashboard) all reference this metadata.
+ */
 export const plannerFlow: PlannerStep[] = [
   {
     id: "commitment",

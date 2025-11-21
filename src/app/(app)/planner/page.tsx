@@ -15,13 +15,21 @@ import { useAuth } from "@/contexts/auth-provider";
 
 type StepFormValues = Record<string, string>;
 
+/**
+ * PlannerFlowPage drives the sequential eight-step life planning journey.
+ * It hydrates values from the Zustand store, mirrors submissions to Supabase,
+ * and coordinates celebratory effects once the user completes every section.
+ */
 export default function PlannerFlowPage() {
   const { currentStepIndex, setStepIndex, saveStepData, entries } =
     usePlannerStore();
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [showCelebration, setShowCelebration] = useState(false);
+  const [toast, setToast] = useState<null | {
+    message: string;
+    tone: "success" | "error";
+  }>(null);
   // Persist celebration state so users only see the confetti the first time
   // they complete the foundational eight-step flow.
   const [hasShownCelebration, setHasShownCelebration] = useState(() => {
@@ -42,6 +50,7 @@ export default function PlannerFlowPage() {
     defaultValues: baseValues,
   });
 
+  // Re-seed the form any time we switch steps so users always see persisted values.
   useEffect(() => {
     reset(baseValues);
   }, [baseValues, reset]);
@@ -59,6 +68,7 @@ export default function PlannerFlowPage() {
 
   const isFlowComplete = completedIndices.length === plannerFlow.length;
 
+  // Toggle the celebration overlay the moment all steps are captured.
   useEffect(() => {
     if (isFlowComplete && !hasShownCelebration) {
       setShowCelebration(true);
@@ -69,11 +79,19 @@ export default function PlannerFlowPage() {
     }
   }, [hasShownCelebration, isFlowComplete]);
 
+  // Persist the celebration flag in localStorage so it survives reloads.
   useEffect(() => {
     if (hasShownCelebration && typeof window !== "undefined") {
       window.localStorage.setItem("plannerFlowCelebrated", "true");
     }
   }, [hasShownCelebration]);
+
+  // Auto-dismiss success/error toasts after a short delay.
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(timeout);
+  }, [toast]);
 
   const highestCompleted = completedIndices.length
     ? Math.max(...completedIndices)
@@ -84,7 +102,6 @@ export default function PlannerFlowPage() {
   // Every step saves to local storage (Zustand) plus Supabase via persistPlannerEntry.
   const onSubmit = handleSubmit(async (values) => {
     setIsSaving(true);
-    setStatus("idle");
     try {
       saveStepData(step.id, values);
       await persistPlannerEntry({
@@ -93,13 +110,16 @@ export default function PlannerFlowPage() {
         completedAt: new Date().toISOString(),
         userId: user?.id,
       });
-      setStatus("success");
+      setToast({ message: "Saved successfully.", tone: "success" });
       if (currentStepIndex < plannerFlow.length - 1) {
         setStepIndex(currentStepIndex + 1);
       }
     } catch (error) {
       console.error(error);
-      setStatus("error");
+      setToast({
+        message: "Something went wrong while saving. Please try again.",
+        tone: "error",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -175,18 +195,16 @@ export default function PlannerFlowPage() {
           </div>
         </form>
 
-        {status === "success" && (
-          <p className="text-sm font-semibold text-emerald-600">
-            Saved locally. Once Supabase is configured the entry will sync
-            automatically.
-          </p>
-        )}
-        {status === "error" && (
-          <p className="text-sm font-semibold text-rose-600">
-            Something went wrong while saving. Please try again.
-          </p>
-        )}
       </section>
+      {toast && (
+        <div
+          className={`fixed top-6 right-6 rounded-2xl px-5 py-3 text-sm font-semibold text-white shadow-xl ${
+            toast.tone === "success" ? "bg-emerald-600" : "bg-rose-600"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
@@ -225,6 +243,7 @@ function StepFields({ step, register, watch }: StepFieldsProps) {
   );
 }
 
+// FieldRenderer handles the default textarea/select inputs used outside custom layouts.
 function FieldRenderer({ field, register }: FieldRendererProps) {
   if (field.type === "textarea") {
     return (
@@ -281,6 +300,10 @@ type CustomFieldBaseProps = {
   register: UseFormRegister<StepFormValues>;
 };
 
+/**
+ * CommitmentLetterFields renders the opening narrative letter inputs
+ * so users can anchor intent before diving into structured prompts.
+ */
 function CommitmentLetterFields({ register }: CustomFieldBaseProps) {
   return (
     <div className="space-y-4 rounded-3xl border border-slate-100 bg-gradient-to-br from-white to-slate-50 p-6">
@@ -311,6 +334,10 @@ function CommitmentLetterFields({ register }: CustomFieldBaseProps) {
   );
 }
 
+/**
+ * VisionQuadrantsFields presents a four-quadrant canvas that captures
+ * vivid descriptions for Self, Body, Family, and Professional areas.
+ */
 function VisionQuadrantsFields({ register }: CustomFieldBaseProps) {
   const quadrants = [
     {
@@ -370,7 +397,10 @@ type WheelFieldProps = CustomFieldBaseProps & {
   watch: UseFormWatch<StepFormValues>;
 };
 
-// Wheel-of-life sliders update a live SVG so users see balance instantly.
+/**
+ * WheelOfLifeFields couples slider inputs with a live SVG chart so users
+ * instantly see balance across four life domains.
+ */
 function WheelOfLifeFields({ register, watch }: WheelFieldProps) {
   const quadrants = [
     {
@@ -459,6 +489,9 @@ type WheelChartProps = {
   }>;
 };
 
+/**
+ * WheelChart converts slider ratings into arc segments for the wheel visualization.
+ */
 function WheelChart({ ratings }: WheelChartProps) {
   const size = 240;
   const center = size / 2;
@@ -543,6 +576,10 @@ function WheelChart({ ratings }: WheelChartProps) {
   );
 }
 
+/**
+ * buildSectorPath generates the SVG path string for a single segment.
+ * The geometry math lives here so WheelChart stays focused on rendering.
+ */
 function buildSectorPath(
   cx: number,
   cy: number,

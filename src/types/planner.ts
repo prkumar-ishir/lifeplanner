@@ -1,3 +1,6 @@
+/**
+ * Shared planner + weekly plan types keep UI, store, and Supabase payloads aligned.
+ */
 export type FieldType = "text" | "textarea" | "number" | "select";
 
 export type PlannerFieldOption = {

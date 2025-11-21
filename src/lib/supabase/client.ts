@@ -2,6 +2,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let browserClient: SupabaseClient | null = null;
 
+/**
+ * getSupabaseBrowserClient lazily instantiates a singleton Supabase JS client.
+ * Returning null when env vars are missing keeps the UI functional in local-only mode.
+ */
 export function getSupabaseBrowserClient() {
   if (browserClient) {
     return browserClient;

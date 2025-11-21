@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-provider";
 
+/**
+ * SignInPage lets users either sign in or sign up via Supabase email/password auth.
+ * It auto-redirects authenticated visitors to the dashboard.
+ */
 export default function SignInPage() {
   const router = useRouter();
   const { user, signInWithPassword, signUpWithPassword } = useAuth();
@@ -24,6 +28,7 @@ export default function SignInPage() {
     password.length > 0 &&
     confirmPassword !== password;
 
+  // Already signed-in users should not stay on the auth screen.
   useEffect(() => {
     if (user) {
       router.replace("/dashboard");

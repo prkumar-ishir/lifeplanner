@@ -27,6 +27,10 @@ const navItems = [
   },
 ];
 
+/**
+ * SidebarNav shows journey progress + links to the key authenticated routes.
+ * It reads completion data from the planner store so links stay contextual.
+ */
 export default function SidebarNav() {
   const pathname = usePathname();
   const entries = usePlannerStore((state) => state.entries);

@@ -8,6 +8,10 @@ import {
 } from "@/lib/supabase/repositories";
 import { usePlannerStore } from "@/store/plannerStore";
 
+/**
+ * usePlannerDataSync hydrates planner entries + weekly plans from Supabase once the user is authenticated.
+ * It also clears local store state if the user signs out so views reset gracefully.
+ */
 export function usePlannerDataSync() {
   const { user } = useAuth();
   const setEntries = usePlannerStore((state) => state.setEntries);
@@ -15,6 +19,7 @@ export function usePlannerDataSync() {
   const [hasSynced, setHasSynced] = useState(false);
   const userId = user?.id;
 
+  // Kick off Supabase fetches once we know the current user id.
   useEffect(() => {
     const ensuredUserId = userId;
     if (!ensuredUserId) {
