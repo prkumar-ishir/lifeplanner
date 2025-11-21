@@ -200,17 +200,17 @@ const goalColorMap: Record<string, string> = {
  */
 function GoalSpotlightRow({ goals, scores, onScoreChange }: GoalSpotlightRowProps) {
   return (
-    <section className="glass-panel p-6">
+    <section className="glass-panel flex h-full flex-col gap-4 p-6">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         Goal spotlight
       </p>
-      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
         {goals.map((goal) => {
           const score = scores[goal.id] ?? 7;
           return (
             <article
               key={goal.id}
-              className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+              className="flex flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -229,16 +229,18 @@ function GoalSpotlightRow({ goals, scores, onScoreChange }: GoalSpotlightRowProp
                 </div>
                 <span className="text-base font-semibold text-slate-900">{score}/10</span>
               </div>
-              <input
-                type="range"
-                min={1}
-                max={10}
-                step={1}
-                value={score}
-                aria-label={`${goal.label} score`}
-                onChange={(event) => onScoreChange(goal.id, Number(event.target.value))}
-                className="mt-4 w-full accent-slate-900"
-              />
+              <div className="mt-auto">
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={score}
+                  aria-label={`${goal.label} score`}
+                  onChange={(event) => onScoreChange(goal.id, Number(event.target.value))}
+                  className="mt-4 w-full accent-slate-900"
+                />
+              </div>
             </article>
           );
         })}
