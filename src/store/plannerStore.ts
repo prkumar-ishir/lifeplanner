@@ -12,9 +12,14 @@ type PlannerState = {
   saveWeeklyPlan: (plan: WeeklyPlan) => void;
   setEntries: (entries: Record<string, PlannerEntry>) => void;
   setWeeklyPlans: (plans: Record<string, WeeklyPlan>) => void;
+  removeWeeklyPlan: (planId: string) => void;
   resetFlow: () => void;
 };
 
+/**
+ * usePlannerStore centralizes planner flow + weekly plan data.
+ * It powers optimistic UI updates first, while Supabase writes finish in the background.
+ */
 export const usePlannerStore = create<PlannerState>((set) => ({
   currentStepIndex: 0,
   entries: {},
@@ -39,6 +44,12 @@ export const usePlannerStore = create<PlannerState>((set) => ({
     })),
   setEntries: (entries) => set({ entries }),
   setWeeklyPlans: (plans) => set({ weeklyPlans: plans }),
+  removeWeeklyPlan: (planId) =>
+    set((state) => {
+      const updated = { ...state.weeklyPlans };
+      delete updated[planId];
+      return { weeklyPlans: updated };
+    }),
   resetFlow: () =>
     set({
       currentStepIndex: 0,

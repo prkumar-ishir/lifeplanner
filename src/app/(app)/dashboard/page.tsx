@@ -7,7 +7,10 @@ import { plannerFlow } from "@/data/plannerFlow";
 import { cn, formatMonth } from "@/lib/utils";
 import { usePlannerStore } from "@/store/plannerStore";
 
-// Dashboard surfaces progress, recent weekly plan, and quick links back into the flow.
+/**
+ * DashboardPage surfaces progress, the latest weekly plan, and shortcuts
+ * back into each planner step using hydrated Zustand data.
+ */
 export default function DashboardPage() {
   const entries = usePlannerStore((state) => state.entries);
   const weeklyPlans = usePlannerStore((state) => state.weeklyPlans);
@@ -24,7 +27,29 @@ export default function DashboardPage() {
   const isProgressComplete = progress >= 100;
   const goalStep = plannerFlow.find((step) => step.id === "goal-setting");
   const goalEntries = entries["goal-setting"];
+  const bucketDefinitions = [
+    {
+      title: "Foundations",
+      stepIds: ["commitment", "vision", "wheel-of-life", "purpose"],
+    },
+    {
+      title: "Reflection",
+      stepIds: ["past-year", "year-ahead"],
+    },
+    {
+      title: "Execution",
+      stepIds: ["goal-setting", "quarterly-planning"],
+    },
+  ] as const;
+  const bucketProgress = bucketDefinitions.map((bucket) => {
+    const completed = bucket.stepIds.filter((id) => Boolean(entries[id])).length;
+    return {
+      title: bucket.title,
+      status: `${completed}/${bucket.stepIds.length}`,
+    };
+  });
 
+  // Translate saved goal step fields into spotlight cards with optional slider control.
   const spotlightGoals = useMemo(() => {
     if (!goalStep || !goalEntries) {
       return [];
@@ -56,19 +81,16 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Top row: weekly rhythm card + progress tracker. */}
       <section className="grid gap-6 lg:grid-cols-2">
-        <article className="glass-panel flex flex-col gap-6 p-6">
+        <article className="glass-panel flex h-full flex-col gap-6 p-6">
           <header>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Weekly rhythm
             </p>
-            <h3 className="text-xl font-semibold text-slate-900">
-              Anchor execution with the weekly planner
-            </h3>
           </header>
           {latestWeeklyPlan ? (
             <Link
               href="/weekly-planner"
-              className="group rounded-2xl border border-slate-100 bg-white p-4 transition hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-lg"
+              className="group flex h-full flex-col rounded-2xl border border-slate-100 bg-white p-4 transition hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-lg"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 group-hover:text-slate-500">
                 Current focus
@@ -84,7 +106,12 @@ export default function DashboardPage() {
                   <li key={win}>{win}</li>
                 ))}
               </ul>
-              <span className="mt-4 inline-flex items-center text-xs font-semibold text-slate-600">
+              {latestWeeklyPlan.scheduleNotes && (
+                <p className="mt-3 text-xs text-slate-500">
+                  Notes: {latestWeeklyPlan.scheduleNotes}
+                </p>
+              )}
+              <span className="mt-auto inline-flex items-center text-xs font-semibold text-slate-600 opacity-0 transition group-hover:opacity-100">
                 Go to weekly planner →
               </span>
             </Link>
@@ -125,26 +152,16 @@ export default function DashboardPage() {
               style={{ width: `${progress}%` }}
             />
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              {
-                title: "Clarify",
-                status: `${Math.min(completedSteps, 4)}/4`,
-              },
-              {
-                title: "Plan",
-                status: `${Math.min(Math.max(completedSteps - 4, 0), 4)}/4`,
-              },
-              {
-                title: "Execute",
-                status: `${Math.max(completedSteps - 8, 0)}/4`,
-              },
-            ].map((item) => (
-              <article key={item.title} className="rounded-2xl border border-slate-100 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+          <div className="flex flex-col gap-4">
+            {bucketProgress.map((item) => (
+              <article
+                key={item.title}
+                className="rounded-3xl border border-slate-100 bg-white px-5 py-5 text-center shadow-sm"
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                   {item.title}
                 </p>
-                <p className="mt-4 text-sm font-semibold text-slate-900">{item.status}</p>
+                <p className="mt-2 text-base font-semibold text-slate-900">{item.status}</p>
               </article>
             ))}
           </div>
@@ -165,12 +182,9 @@ export default function DashboardPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Flow overview
           </p>
-          <h3 className="text-xl font-semibold text-slate-900">
-            Each card becomes editable after completion
-          </h3>
         </header>
         <div className="mt-6 flex-1 overflow-hidden">
-          <div className="scroll-thin h-full overflow-y-auto pr-1">
+          <div className="scroll-thin h-full overflow-y-auto pr-1 pt-2">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {plannerFlow.map((step, index) => {
                 const data = entries[step.id];
@@ -244,6 +258,10 @@ const goalColorMap: Record<string, string> = {
   goal_professional: "#22c55e",
 };
 
+/**
+ * GoalSpotlightRow renders a slider card for each captured goal so the user can
+ * rate momentum and keep the dashboard engaging between flow sessions.
+ */
 function GoalSpotlightRow({ goals, scores, onScoreChange }: GoalSpotlightRowProps) {
   return (
     <section className="glass-panel p-6">
@@ -293,6 +311,10 @@ function GoalSpotlightRow({ goals, scores, onScoreChange }: GoalSpotlightRowProp
   );
 }
 
+/**
+ * useGoalScores persists quick slider tweaks in localStorage to keep the dashboard
+ * feeling stateful even before Supabase entries exist.
+ */
 function useGoalScores() {
   const [scores, setScores] = useState<Record<string, number>>({});
 

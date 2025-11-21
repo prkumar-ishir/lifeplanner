@@ -7,6 +7,7 @@ import type {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "./client";
 
+// Helper that lazily resolves a Supabase client and skips work when credentials are missing.
 async function withClient<T>(callback: (client: SupabaseClient) => Promise<T>) {
   const client = getSupabaseBrowserClient();
   if (!client) {
@@ -16,6 +17,10 @@ async function withClient<T>(callback: (client: SupabaseClient) => Promise<T>) {
   return callback(client);
 }
 
+/**
+ * persistPlannerEntry upserts a single step record keyed by user + step id.
+ * It returns the Supabase row so callers can inspect generated columns if desired.
+ */
 export async function persistPlannerEntry(payload: PlannerEntryPayload) {
   if (!payload.userId) {
     console.warn("Missing userId. Planner entry will stay local-only.");
@@ -45,6 +50,9 @@ export async function persistPlannerEntry(payload: PlannerEntryPayload) {
   });
 }
 
+/**
+ * persistWeeklyPlan stores a weekly rhythm entry by user + plan id (year-month-week).
+ */
 export async function persistWeeklyPlan(payload: WeeklyPlanPayload) {
   if (!payload.userId) {
     console.warn("Missing userId. Weekly plan will stay local-only.");
@@ -97,6 +105,10 @@ type WeeklyPlanRow = {
   updated_at: string;
 };
 
+/**
+ * fetchPlannerEntries returns all planner_entries rows for a user and normalizes them
+ * into the in-memory shape used throughout the UI.
+ */
 export async function fetchPlannerEntries(userId: string) {
   if (!userId) return {};
   const rows =
@@ -115,6 +127,10 @@ export async function fetchPlannerEntries(userId: string) {
   }, {});
 }
 
+/**
+ * fetchWeeklyPlans reads every weekly plan row for the user and reshapes column names
+ * to the camelCase structure expected by the Zustand store.
+ */
 export async function fetchWeeklyPlans(userId: string) {
   if (!userId) return {};
   const rows =
@@ -140,4 +156,22 @@ export async function fetchWeeklyPlans(userId: string) {
     };
     return acc;
   }, {});
+}
+
+export async function deleteWeeklyPlan(userId: string, planId: string) {
+  if (!userId) {
+    console.warn("Missing userId. Weekly plan delete skipped.");
+    return null;
+  }
+  return withClient(async (client) => {
+    const { error } = await client
+      .from("weekly_plans")
+      .delete()
+      .eq("user_id", userId)
+      .eq("id", planId);
+    if (error) {
+      throw error;
+    }
+    return true;
+  });
 }

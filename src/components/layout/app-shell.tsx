@@ -1,22 +1,24 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import SidebarNav from "@/components/navigation/sidebar-nav";
 import { useAuth } from "@/contexts/auth-provider";
 import { usePlannerDataSync } from "@/hooks/usePlannerDataSync";
-import ishirLogo from "@/app/ishir-logo.png";
 
 type Props = {
   children: ReactNode;
 };
 
-// AppShell wires global auth-aware chrome (header + sidebar) around each protected route.
+/**
+ * AppShell wraps every authenticated route with global chrome (header + sidebar) and
+ * gates access until auth + Supabase hydration complete.
+ */
 export default function AppShell({ children }: Props) {
   const { user, loading, signOut } = useAuth();
   const { isHydrated } = usePlannerDataSync();
 
+  // `workspace` renders the right glass panel for loading, auth, syncing, or content states.
   const workspace = (() => {
     // Loading, unauthenticated, and syncing states share the same glass panel wrapper
     // so page transitions feel consistent across the app.
@@ -62,25 +64,10 @@ export default function AppShell({ children }: Props) {
     <div className="flex min-h-screen flex-col bg-slate-50">
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center px-6 py-4">
-          <div className="flex flex-shrink-0 items-center">
-            <a
-              href="https://www.ishir.com"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center"
-            >
-              <Image
-                src={ishirLogo}
-                alt="ISHIR logo"
-                className="h-9 w-auto"
-                priority
-              />
-            </a>
-          </div>
-          <div className="flex flex-1 justify-center">
+          <div className="flex flex-1 items-center">
             <Link
               href="/"
-              className="text-xs font-semibold uppercase tracking-[0.5em] text-brand-dark"
+              className="text-xs font-semibold uppercase tracking-[0.4em] text-brand-dark"
             >
               Life Planner
             </Link>
@@ -105,7 +92,7 @@ export default function AppShell({ children }: Props) {
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-10 md:flex-row">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-10 pb-24 md:flex-row">
         <aside className="md:w-64">
           <SidebarNav />
         </aside>

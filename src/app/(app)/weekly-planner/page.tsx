@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { persistWeeklyPlan } from "@/lib/supabase/repositories";
+import {
+  deleteWeeklyPlan,
+  persistWeeklyPlan,
+} from "@/lib/supabase/repositories";
 import { formatMonth } from "@/lib/utils";
 import { usePlannerStore } from "@/store/plannerStore";
 import { useAuth } from "@/contexts/auth-provider";
@@ -21,15 +24,23 @@ const currentYear = new Date().getFullYear();
 const years = [currentYear - 1, currentYear, currentYear + 1];
 const months = Array.from({ length: 12 }, (_, index) => index + 1);
 
-// WeeklyPlannerPage lets users log focus, wins, and schedule notes per week.
+/**
+ * WeeklyPlannerPage lets users log focus, wins, and schedule notes per week.
+ * It mirrors every submission into Supabase and mirrors success via toasts + redirect.
+ */
 export default function WeeklyPlannerPage() {
   const saveWeeklyPlan = usePlannerStore((state) => state.saveWeeklyPlan);
+  const removeWeeklyPlan = usePlannerStore((state) => state.removeWeeklyPlan);
   const weeklyPlans = usePlannerStore((state) => state.weeklyPlans);
   const { user } = useAuth();
   const router = useRouter();
-  const [status, setStatus] = useState<"idle" | "saving" | "success">("idle");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "saving">("idle");
+  const [toast, setToast] = useState<null | {
+    message: string;
+    tone: "success" | "error";
+  }>(null);
   const [shouldRedirect, setShouldRedirect] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
 
   const form = useForm<WeeklyPlannerForm>({
     defaultValues: {
@@ -41,7 +52,9 @@ export default function WeeklyPlannerPage() {
       scheduleNotes: "",
     },
   });
+  const isEditing = Boolean(editingPlanId);
 
+  // Keep recent plans sorted so the list doubles as a mini history log.
   const sortedPlans = useMemo(
     () =>
       Object.values(weeklyPlans).sort((a, b) =>
@@ -50,12 +63,14 @@ export default function WeeklyPlannerPage() {
     [weeklyPlans]
   );
 
+  // Dismiss toast messages automatically so the viewport stays tidy.
   useEffect(() => {
-    if (!toastMessage) return;
-    const timeout = setTimeout(() => setToastMessage(null), 3000);
+    if (!toast) return;
+    const timeout = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(timeout);
-  }, [toastMessage]);
+  }, [toast]);
 
+  // After a successful save redirect to the dashboard to reinforce the loop.
   useEffect(() => {
     if (!shouldRedirect) return;
     const timeout = setTimeout(() => {
@@ -86,13 +101,81 @@ export default function WeeklyPlannerPage() {
       userId: user?.id,
     };
 
-    saveWeeklyPlan(payload);
-    await persistWeeklyPlan(payload);
-    setStatus("success");
-    setToastMessage("Weekly plan saved! Redirecting to dashboard…");
-    form.reset({ ...values, focus: "", wins: "", scheduleNotes: "" });
-    setShouldRedirect(true);
+    try {
+      saveWeeklyPlan(payload);
+      await persistWeeklyPlan(payload);
+      setToast({
+        message: isEditing
+          ? "Weekly plan updated."
+          : "Saved successfully. Redirecting to dashboard…",
+        tone: "success",
+      });
+      form.reset({ ...values, focus: "", wins: "", scheduleNotes: "" });
+      setEditingPlanId(null);
+      setShouldRedirect(!isEditing);
+    } catch (error) {
+      console.error("Failed to save weekly plan", error);
+      setToast({
+        message: "Could not save weekly plan. Please try again.",
+        tone: "error",
+      });
+    } finally {
+      setStatus("idle");
+    }
   });
+
+  const handleEditPlan = (planId: string) => {
+    const plan = weeklyPlans[planId];
+    if (!plan) return;
+    setEditingPlanId(planId);
+    form.reset({
+      year: plan.year,
+      month: plan.month,
+      weekOfMonth: plan.weekOfMonth,
+      focus: plan.focus,
+      wins: plan.wins.join("\n"),
+      scheduleNotes: plan.scheduleNotes ?? "",
+    });
+    setShouldRedirect(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPlanId(null);
+    form.reset({
+      year: currentYear,
+      month: new Date().getMonth() + 1,
+      weekOfMonth: 1,
+      focus: "",
+      wins: "",
+      scheduleNotes: "",
+    });
+  };
+
+  const handleDeletePlan = async (planId: string) => {
+    if (!user?.id) {
+      setToast({
+        message: "Sign in to delete saved plans.",
+        tone: "error",
+      });
+      return;
+    }
+    const confirmed = window.confirm("Delete this weekly plan?");
+    if (!confirmed) return;
+    try {
+      await deleteWeeklyPlan(user.id, planId);
+      removeWeeklyPlan(planId);
+      if (editingPlanId === planId) {
+        handleCancelEdit();
+      }
+      setToast({ message: "Weekly plan deleted.", tone: "success" });
+    } catch (error) {
+      console.error("Failed to delete weekly plan", error);
+      setToast({
+        message: "Could not delete weekly plan. Please try again.",
+        tone: "error",
+      });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -193,14 +276,23 @@ export default function WeeklyPlannerPage() {
             />
           </label>
 
-          <div className="md:col-span-2 lg:col-span-3">
+          <div className="md:col-span-2 lg:col-span-3 flex flex-wrap items-center gap-3">
             <button
               type="submit"
               disabled={status === "saving"}
               className="rounded-xl bg-slate-900 px-8 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait"
             >
-              Save weekly plan
+              {isEditing ? "Update weekly plan" : "Save weekly plan"}
             </button>
+            {isEditing && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="text-sm font-semibold text-slate-500 underline-offset-4 hover:underline"
+              >
+                Cancel edit
+              </button>
+            )}
           </div>
         </form>
       </section>
@@ -209,7 +301,7 @@ export default function WeeklyPlannerPage() {
         <header className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-slate-900">Recent plans</h2>
           <p className="text-sm text-slate-500">
-            {sortedPlans.length} saved locally
+            {sortedPlans.length} saved to your workspace
           </p>
         </header>
         {sortedPlans.length === 0 ? (
@@ -223,23 +315,52 @@ export default function WeeklyPlannerPage() {
                 key={plan.id}
                 className="rounded-2xl border border-slate-100 bg-white p-4"
               >
-                <p className="text-sm font-semibold text-slate-900">
-                  Week {plan.weekOfMonth}, {formatMonth(plan.month)} {plan.year}
-                </p>
-                <p className="text-sm text-slate-500">{plan.focus}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Week {plan.weekOfMonth}, {formatMonth(plan.month)} {plan.year}
+                    </p>
+                    <p className="text-sm text-slate-500">{plan.focus}</p>
+                  </div>
+                  <div className="flex gap-2 text-xs font-semibold text-slate-500">
+                    <button
+                      type="button"
+                      onClick={() => handleEditPlan(plan.id)}
+                      className="rounded-full border border-slate-200 px-2 py-1 text-xs transition hover:border-slate-300"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePlan(plan.id)}
+                      className="rounded-full border border-rose-200 px-2 py-1 text-xs text-rose-600 transition hover:border-rose-300"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
                 <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-slate-500">
                   {plan.wins.map((win) => (
                     <li key={win}>{win}</li>
                   ))}
                 </ul>
+                {plan.scheduleNotes && (
+                  <p className="mt-3 text-xs text-slate-500">
+                    Notes: {plan.scheduleNotes}
+                  </p>
+                )}
               </li>
             ))}
           </ul>
         )}
       </section>
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-xl">
-          {toastMessage}
+      {toast && (
+        <div
+          className={`fixed top-6 right-6 rounded-2xl px-5 py-3 text-sm font-semibold text-white shadow-xl ${
+            toast.tone === "success" ? "bg-emerald-600" : "bg-rose-600"
+          }`}
+        >
+          {toast.message}
         </div>
       )}
     </div>
