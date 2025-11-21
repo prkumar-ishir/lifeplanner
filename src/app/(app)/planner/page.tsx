@@ -30,12 +30,6 @@ export default function PlannerFlowPage() {
     message: string;
     tone: "success" | "error";
   }>(null);
-  // Persist celebration state so users only see the confetti the first time
-  // they complete the foundational eight-step flow.
-  const [hasShownCelebration, setHasShownCelebration] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("plannerFlowCelebrated") === "true";
-  });
 
   const step = plannerFlow[currentStepIndex];
 
@@ -66,26 +60,6 @@ export default function PlannerFlowPage() {
     [entries]
   );
 
-  const isFlowComplete = completedIndices.length === plannerFlow.length;
-
-  // Toggle the celebration overlay the moment all steps are captured.
-  useEffect(() => {
-    if (isFlowComplete && !hasShownCelebration) {
-      setShowCelebration(true);
-      setHasShownCelebration(true);
-    }
-    if (!isFlowComplete) {
-      setShowCelebration(false);
-    }
-  }, [hasShownCelebration, isFlowComplete]);
-
-  // Persist the celebration flag in localStorage so it survives reloads.
-  useEffect(() => {
-    if (hasShownCelebration && typeof window !== "undefined") {
-      window.localStorage.setItem("plannerFlowCelebrated", "true");
-    }
-  }, [hasShownCelebration]);
-
   // Auto-dismiss success/error toasts after a short delay.
   useEffect(() => {
     if (!toast) return;
@@ -113,6 +87,8 @@ export default function PlannerFlowPage() {
       setToast({ message: "Saved successfully.", tone: "success" });
       if (currentStepIndex < plannerFlow.length - 1) {
         setStepIndex(currentStepIndex + 1);
+      } else {
+        setShowCelebration(true);
       }
     } catch (error) {
       console.error(error);
