@@ -38,6 +38,24 @@ export default function SidebarNav() {
   const completedSteps = Object.keys(entries).length;
   const totalSteps = plannerFlow.length;
   const progress = Math.round((completedSteps / totalSteps) * 100);
+  const bucketDefinitions = [
+    {
+      title: "Foundations",
+      stepIds: ["commitment", "vision", "wheel-of-life", "purpose"],
+    },
+    {
+      title: "Reflection",
+      stepIds: ["past-year", "year-ahead"],
+    },
+    {
+      title: "Execution",
+      stepIds: ["goal-setting", "quarterly-planning"],
+    },
+  ] as const;
+  const bucketProgress = bucketDefinitions.map((bucket) => {
+    const completed = bucket.stepIds.filter((id) => Boolean(entries[id])).length;
+    return { title: bucket.title, status: `${completed}/${bucket.stepIds.length}` };
+  });
 
   return (
     <div className="glass-panel space-y-6 p-6">
@@ -76,6 +94,34 @@ export default function SidebarNav() {
           );
         })}
       </nav>
+
+      <section className="rounded-2xl border border-slate-200 bg-white/70 p-4">
+        <div className="mb-3">
+          <p className="text-sm font-semibold text-slate-900">{progress}% complete</p>
+          <p className="text-xs text-slate-500">
+            {completedSteps} of {totalSteps} steps captured.
+          </p>
+        </div>
+        <div className="h-2 rounded-full bg-slate-100">
+          <div
+            className="h-2 rounded-full bg-gradient-to-r from-brand to-purple-500 transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="mt-4 space-y-2">
+          {bucketProgress.map((bucket) => (
+            <div
+              key={bucket.title}
+              className="rounded-xl border border-slate-100 bg-white px-3 py-2 text-center"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                {bucket.title}
+              </p>
+              <p className="text-sm font-semibold text-slate-900">{bucket.status}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

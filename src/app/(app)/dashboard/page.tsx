@@ -27,28 +27,6 @@ export default function DashboardPage() {
   const isProgressComplete = progress >= 100;
   const goalStep = plannerFlow.find((step) => step.id === "goal-setting");
   const goalEntries = entries["goal-setting"];
-  const bucketDefinitions = [
-    {
-      title: "Foundations",
-      stepIds: ["commitment", "vision", "wheel-of-life", "purpose"],
-    },
-    {
-      title: "Reflection",
-      stepIds: ["past-year", "year-ahead"],
-    },
-    {
-      title: "Execution",
-      stepIds: ["goal-setting", "quarterly-planning"],
-    },
-  ] as const;
-  const bucketProgress = bucketDefinitions.map((bucket) => {
-    const completed = bucket.stepIds.filter((id) => Boolean(entries[id])).length;
-    return {
-      title: bucket.title,
-      status: `${completed}/${bucket.stepIds.length}`,
-    };
-  });
-
   // Translate saved goal step fields into spotlight cards with optional slider control.
   const spotlightGoals = useMemo(() => {
     if (!goalStep || !goalEntries) {
@@ -79,102 +57,60 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Top row: weekly rhythm card + progress tracker. */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        <article className="glass-panel flex h-full flex-col gap-6 p-6">
-          <header>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Weekly rhythm
-            </p>
-          </header>
-          {latestWeeklyPlan ? (
-            <Link
-              href="/weekly-planner"
-              className="group flex h-full flex-col rounded-2xl border border-slate-100 bg-white p-4 transition hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-lg"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 group-hover:text-slate-500">
-                Current focus
+      {/* Top layout: left column stacks rhythm + journey progress, right column shows goals. */}
+      <section className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <div className="space-y-6">
+          <article className="glass-panel flex flex-col gap-6 p-6">
+            <header>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Weekly rhythm
               </p>
-              <p className="mt-2 text-lg font-semibold text-slate-900">
-                {latestWeeklyPlan.focus}
-              </p>
-              <p className="text-sm text-slate-500">
-                Week {latestWeeklyPlan.weekOfMonth}, {formatMonth(latestWeeklyPlan.month)} {latestWeeklyPlan.year}
-              </p>
-              <ul className="mt-4 list-disc space-y-1 pl-4 text-xs text-slate-500">
-                {latestWeeklyPlan.wins.map((win) => (
-                  <li key={win}>{win}</li>
-                ))}
-              </ul>
-              {latestWeeklyPlan.scheduleNotes && (
-                <p className="mt-3 text-xs text-slate-500">
-                  Notes: {latestWeeklyPlan.scheduleNotes}
-                </p>
-              )}
-              <span className="mt-auto inline-flex items-center text-xs font-semibold text-slate-600 opacity-0 transition group-hover:opacity-100">
-                Go to weekly planner →
-              </span>
-            </Link>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-              No weekly plan logged yet. Capture one to see it here.
-            </div>
-          )}
-        </article>
-
-        <article className="glass-panel flex flex-col gap-6 p-8">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              {!isProgressComplete && (
-                <p className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-                  Current progress
-                </p>
-              )}
-              <h2 className="mt-2 text-3xl font-semibold text-slate-900">
-                {progress}% complete
-              </h2>
-              <p className="text-sm text-slate-500">
-                {completedSteps} of {plannerFlow.length} steps captured.
-              </p>
-            </div>
-            {!isProgressComplete && (
+            </header>
+            {latestWeeklyPlan ? (
               <Link
-                href="/planner"
-                className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-white"
+                href="/weekly-planner"
+                className="group flex h-full flex-col rounded-2xl border border-slate-100 bg-white p-4 transition hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-lg"
               >
-                Manage flow
-              </Link>
-            )}
-          </div>
-          <div className="h-3 rounded-full bg-slate-100">
-            <div
-              className="h-3 rounded-full bg-gradient-to-r from-brand to-purple-500 transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="flex flex-col gap-4">
-            {bucketProgress.map((item) => (
-              <article
-                key={item.title}
-                className="rounded-3xl border border-slate-100 bg-white px-5 py-5 text-center shadow-sm"
-              >
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  {item.title}
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 group-hover:text-slate-500">
+                  Current focus
                 </p>
-                <p className="mt-2 text-base font-semibold text-slate-900">{item.status}</p>
-              </article>
-            ))}
-          </div>
-        </article>
-      </section>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {latestWeeklyPlan.focus}
+                </p>
+                <p className="text-sm text-slate-500">
+                  Week {latestWeeklyPlan.weekOfMonth}, {formatMonth(latestWeeklyPlan.month)} {latestWeeklyPlan.year}
+                </p>
+                <ul className="mt-4 list-disc space-y-1 pl-4 text-xs text-slate-500">
+                  {latestWeeklyPlan.wins.map((win) => (
+                    <li key={win}>{win}</li>
+                  ))}
+                </ul>
+                {latestWeeklyPlan.scheduleNotes && (
+                  <p className="mt-3 text-xs text-slate-500">
+                    Notes: {latestWeeklyPlan.scheduleNotes}
+                  </p>
+                )}
+                <span className="mt-auto inline-flex items-center text-xs font-semibold text-slate-600 opacity-0 transition group-hover:opacity-100">
+                  Go to weekly planner →
+                </span>
+              </Link>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+                No weekly plan logged yet. Capture one to see it here.
+              </div>
+            )}
+          </article>
 
-      {spotlightGoals.length > 0 && (
-        <GoalSpotlightRow
-          goals={spotlightGoals}
-          scores={goalScores}
-          onScoreChange={handleGoalScoreChange}
-        />
-      )}
+        </div>
+
+        <div className="lg:pl-4">
+          <GoalSpotlightRow
+            goals={spotlightGoals}
+            scores={goalScores}
+            onScoreChange={handleGoalScoreChange}
+          />
+        </div>
+      </section>
 
       {/* Flow overview: grid of steps becomes clickable once a step is captured. */}
       <section className="glass-panel flex max-h-[560px] flex-col overflow-hidden p-6">
