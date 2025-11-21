@@ -374,7 +374,7 @@ export default function WeeklyPlannerPage() {
       )}
       {pendingDelete && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setPendingDelete(null)} />
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setPendingDelete(null)} />
           <div className="relative z-10 max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
             <p className="text-lg font-semibold text-slate-900">Delete this plan?</p>
             <p className="mt-2 text-sm text-slate-500">
