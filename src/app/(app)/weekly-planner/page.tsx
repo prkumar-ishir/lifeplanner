@@ -151,7 +151,7 @@ export default function WeeklyPlannerPage() {
     });
   };
 
-  const handleDeletePlan = async (planId: string) => {
+  const handleDeletePlan = (planId: string) => {
     if (!user?.id) {
       setToast({
         message: "Sign in to delete saved plans.",
@@ -159,12 +159,18 @@ export default function WeeklyPlannerPage() {
       });
       return;
     }
-    const confirmed = window.confirm("Delete this weekly plan?");
-    if (!confirmed) return;
+    setPendingDelete(planId);
+  };
+
+  const confirmDeletePlan = async () => {
+    if (!pendingDelete || !user?.id) {
+      setPendingDelete(null);
+      return;
+    }
     try {
-      await deleteWeeklyPlan(user.id, planId);
-      removeWeeklyPlan(planId);
-      if (editingPlanId === planId) {
+      await deleteWeeklyPlan(user.id, pendingDelete);
+      removeWeeklyPlan(pendingDelete);
+      if (editingPlanId === pendingDelete) {
         handleCancelEdit();
       }
       setToast({ message: "Weekly plan deleted.", tone: "success" });
@@ -174,6 +180,8 @@ export default function WeeklyPlannerPage() {
         message: "Could not delete weekly plan. Please try again.",
         tone: "error",
       });
+    } finally {
+      setPendingDelete(null);
     }
   };
 
@@ -361,6 +369,31 @@ export default function WeeklyPlannerPage() {
           }`}
         >
           {toast.message}
+        </div>
+      )}
+      {pendingDelete && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setPendingDelete(null)} />
+          <div className="relative z-10 max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+            <p className="text-lg font-semibold text-slate-900">Delete this plan?</p>
+            <p className="mt-2 text-sm text-slate-500">
+              This action cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-center gap-3">
+              <button
+                onClick={confirmDeletePlan}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setPendingDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
