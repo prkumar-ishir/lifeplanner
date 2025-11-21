@@ -6,17 +6,20 @@ import { useRouter } from "next/navigation";
 import { plannerFlow } from "@/data/plannerFlow";
 import { cn, formatMonth } from "@/lib/utils";
 import { usePlannerStore } from "@/store/plannerStore";
+import { useAuth } from "@/contexts/auth-provider";
+import { fetchGoalScores, upsertGoalScore } from "@/lib/supabase/repositories";
 
 /**
  * DashboardPage surfaces progress, the latest weekly plan, and shortcuts
  * back into each planner step using hydrated Zustand data.
  */
 export default function DashboardPage() {
+  const { user } = useAuth();
   const entries = usePlannerStore((state) => state.entries);
   const weeklyPlans = usePlannerStore((state) => state.weeklyPlans);
   const setStepIndex = usePlannerStore((state) => state.setStepIndex);
   const router = useRouter();
-  const [goalScores, setGoalScores] = useGoalScores();
+  const [goalScores, setGoalScores] = useState<Record<string, number>>({});
 
   const completedSteps = Object.keys(entries).length;
   const progress = Math.round((completedSteps / plannerFlow.length) * 100);
@@ -48,11 +51,32 @@ export default function DashboardPage() {
       .filter((goal): goal is GoalSpotlightGoal => Boolean(goal));
   }, [goalEntries, goalStep]);
 
+  useEffect(() => {
+    let isMounted = true;
+    if (!user?.id) {
+      setGoalScores({});
+      return;
+    }
+    fetchGoalScores(user.id)
+      .then((scores) => {
+        if (isMounted) setGoalScores(scores);
+      })
+      .catch((error) => console.error("Failed to fetch goal scores", error));
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
   const handleGoalScoreChange = (goalId: string, score: number) => {
     setGoalScores((prev) => ({
       ...prev,
       [goalId]: score,
     }));
+    if (user?.id) {
+      upsertGoalScore(user.id, goalId, score).catch((error) => {
+        console.error("Failed to persist goal score", error);
+      });
+    }
   };
 
   return (
@@ -247,38 +271,4 @@ function GoalSpotlightRow({ goals, scores, onScoreChange }: GoalSpotlightRowProp
       </div>
     </section>
   );
-}
-
-/**
- * useGoalScores persists quick slider tweaks in localStorage to keep the dashboard
- * feeling stateful even before Supabase entries exist.
- */
-function useGoalScores() {
-  const [scores, setScores] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = window.localStorage.getItem("goalScores");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (typeof parsed === "object" && parsed !== null) {
-          setScores(parsed);
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to read goal scores", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem("goalScores", JSON.stringify(scores));
-    } catch (error) {
-      console.warn("Failed to persist goal scores", error);
-    }
-  }, [scores]);
-
-  return [scores, setScores] as const;
 }

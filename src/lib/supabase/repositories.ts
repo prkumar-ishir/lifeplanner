@@ -3,6 +3,7 @@ import type {
   PlannerEntryPayload,
   WeeklyPlan,
   WeeklyPlanPayload,
+  GoalScore,
 } from "@/types/planner";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "./client";
@@ -172,6 +173,40 @@ export async function deleteWeeklyPlan(userId: string, planId: string) {
     if (error) {
       throw error;
     }
+    return true;
+  });
+}
+export async function fetchGoalScores(userId: string) {
+  if (!userId) return {};
+  const rows =
+    (await withClient(async (client) => {
+      const { data, error } = await client
+        .from("goal_scores")
+        .select("goal_id,score")
+        .eq("user_id", userId);
+      if (error) throw error;
+      return data as { goal_id: string; score: number }[];
+    })) ?? [];
+
+  return rows.reduce<Record<string, number>>((acc, row) => {
+    acc[row.goal_id] = row.score;
+    return acc;
+  }, {});
+}
+
+export async function upsertGoalScore(userId: string, goalId: string, score: number) {
+  if (!userId) {
+    console.warn("Missing userId. Goal score not persisted.");
+    return null;
+  }
+  return withClient(async (client) => {
+    const { error } = await client
+      .from("goal_scores")
+      .upsert(
+        { user_id: userId, goal_id: goalId, score },
+        { onConflict: "user_id,goal_id" }
+      );
+    if (error) throw error;
     return true;
   });
 }

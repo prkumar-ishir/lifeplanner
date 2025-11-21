@@ -56,3 +56,8 @@ export type PlannerEntryPayload = {
 export type WeeklyPlanPayload = WeeklyPlan & {
   userId?: string;
 };
+
+export type GoalScore = {
+  goalId: string;
+  score: number;
+};
