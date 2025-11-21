@@ -617,8 +617,8 @@ function CelebrationOverlay({ onDismiss, onPlanWeek }: CelebrationOverlayProps) 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-white/80 backdrop-blur-sm" />
-      <div className="relative z-10 max-w-3xl rounded-[32px] bg-white/95 p-10 text-center shadow-2xl">
-        <p className="text-lg font-semibold uppercase tracking-[0.3em] text-slate-400">
+      <div className="relative z-10 max-w-4xl rounded-[36px] bg-white/95 p-12 text-center shadow-2xl">
+        <p className="text-lg font-light uppercase tracking-[0.2em] text-slate-400">
           You just designed a powerful new chapter.
         </p>
         <p className="mt-3 text-base text-slate-600">
