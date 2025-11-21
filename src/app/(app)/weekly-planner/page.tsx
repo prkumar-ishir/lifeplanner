@@ -41,6 +41,7 @@ export default function WeeklyPlannerPage() {
   }>(null);
   const [shouldRedirect, setShouldRedirect] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   const form = useForm<WeeklyPlannerForm>({
     defaultValues: {
