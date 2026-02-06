@@ -289,7 +289,7 @@ export default function WeeklyPlannerPage() {
             <button
               type="submit"
               disabled={status === "saving"}
-              className="rounded-xl bg-slate-900 px-8 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait"
+              className="rounded-xl bg-brand px-8 py-3 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:cursor-wait"
             >
               {isEditing ? "Update weekly plan" : "Save weekly plan"}
             </button>

@@ -66,7 +66,7 @@ export default function SidebarNav() {
         </p>
         <div className="mt-4 h-2 rounded-full bg-slate-100">
           <div
-            className="h-2 rounded-full bg-gradient-to-r from-brand to-violet-500 transition-all"
+            className="h-2 rounded-full bg-gradient-to-r from-[var(--brand)] to-[var(--gradient-mid)] transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -82,14 +82,14 @@ export default function SidebarNav() {
               className={cn(
                 "block rounded-2xl border px-4 py-3 transition",
                 isActive
-                  ? "border-slate-900 bg-slate-900 text-white shadow-lg"
+                  ? "border-brand bg-brand text-white shadow-lg"
                   : "border-transparent bg-white/60 text-slate-700 hover:border-slate-200 hover:bg-white"
               )}
             >
               <span className="text-sm font-medium">
                 {item.icon} {item.label}
               </span>
-              <p className="text-xs text-slate-500">{item.description}</p>
+              <p className={cn("text-xs", isActive ? "text-white/70" : "text-slate-500")}>{item.description}</p>
             </Link>
           );
         })}
@@ -104,7 +104,7 @@ export default function SidebarNav() {
         </div>
         <div className="h-2 rounded-full bg-slate-100">
           <div
-            className="h-2 rounded-full bg-gradient-to-r from-brand to-purple-500 transition-all"
+            className="h-2 rounded-full bg-gradient-to-r from-[var(--brand)] to-[var(--gradient-mid)] transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>

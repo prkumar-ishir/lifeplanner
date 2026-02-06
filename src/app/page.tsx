@@ -107,7 +107,7 @@ export default function Home() {
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-white transition hover:bg-slate-800"
+              className="inline-flex items-center justify-center rounded-xl bg-brand px-6 py-3 text-white transition hover:bg-brand-dark"
             >
               Go to workspace
             </Link>

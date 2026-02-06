@@ -36,7 +36,7 @@ export function FlowStepper({
                   className={cn(
                     "flex items-center gap-3 rounded-2xl border px-3 py-2 text-sm transition",
                     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400",
-                    isCurrent && "border-slate-900 bg-slate-900 text-white shadow",
+                    isCurrent && "border-brand bg-brand text-white shadow",
                     isCompleted && !isCurrent &&
                       "border-emerald-200 bg-emerald-50 text-emerald-900",
                     !isCurrent &&

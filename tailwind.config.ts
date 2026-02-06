@@ -14,10 +14,10 @@ const config: Config = {
       },
       colors: {
         brand: {
-          DEFAULT: "#2563eb",
-          dark: "#1e3a8a",
-          light: "#93c5fd",
-          accent: "#fbbf24",
+          DEFAULT: "var(--brand)",
+          dark: "var(--brand-dark)",
+          light: "var(--brand-light)",
+          accent: "var(--brand-accent)",
         },
       },
       boxShadow: {

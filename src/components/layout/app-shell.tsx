@@ -41,7 +41,7 @@ export default function AppShell({ children }: Props) {
           </p>
           <Link
             href="/signin"
-            className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            className="rounded-xl bg-brand px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-dark"
           >
             Go to sign in
           </Link>
@@ -74,16 +74,24 @@ export default function AppShell({ children }: Props) {
           </div>
           <div className="flex flex-shrink-0 items-center gap-3">
             {user ? (
-              <button
-                onClick={() => signOut()}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300"
-              >
-                Sign out
-              </button>
+              <>
+                <Link
+                  href="/settings"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300"
+                >
+                  Settings
+                </Link>
+                <button
+                  onClick={() => signOut()}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300"
+                >
+                  Sign out
+                </button>
+              </>
             ) : (
               <Link
                 href="/signin"
-                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                className="rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark"
               >
                 Sign in
               </Link>

@@ -120,7 +120,7 @@ export default function SignInPage() {
           <button
             type="submit"
             disabled={status === "loading" || passwordsMismatch}
-            className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait"
+            className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:cursor-wait"
           >
             {status === "loading"
               ? "Please wait…"

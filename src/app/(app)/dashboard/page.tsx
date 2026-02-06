@@ -262,7 +262,7 @@ function GoalSpotlightRow({ goals, scores, onScoreChange }: GoalSpotlightRowProp
                   value={score}
                   aria-label={`${goal.label} score`}
                   onChange={(event) => onScoreChange(goal.id, Number(event.target.value))}
-                  className="mt-4 w-full accent-slate-900"
+                  className="mt-4 w-full accent-brand"
                 />
               </div>
             </article>

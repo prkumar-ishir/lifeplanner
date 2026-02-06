@@ -162,7 +162,7 @@ export default function PlannerFlowPage() {
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-xl bg-slate-900 px-8 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-wait"
+              className="rounded-xl bg-brand px-8 py-3 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:cursor-wait"
             >
               {currentStepIndex === plannerFlow.length - 1
                 ? "Save flow"
@@ -442,7 +442,7 @@ function WheelOfLifeFields({ register, watch }: WheelFieldProps) {
                   max={10}
                   step={1}
                   {...register(quadrant.id)}
-                  className="w-full accent-slate-900"
+                  className="w-full accent-brand"
                 />
               </label>
             );
@@ -627,7 +627,7 @@ function CelebrationOverlay({ onDismiss, onPlanWeek }: CelebrationOverlayProps) 
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button
             onClick={onPlanWeek}
-            className="inline-flex items-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            className="inline-flex items-center rounded-xl bg-brand px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-dark"
           >
             Start planning your week
           </button>

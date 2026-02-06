@@ -194,6 +194,37 @@ export async function fetchGoalScores(userId: string) {
   }, {});
 }
 
+export async function fetchUserTheme(userId: string): Promise<string | null> {
+  if (!userId) return null;
+  return withClient(async (client) => {
+    const { data, error } = await client
+      .from("user_preferences")
+      .select("theme")
+      .eq("user_id", userId)
+      .single();
+    if (error) {
+      // No row yet — not an error, just no preference saved
+      if (error.code === "PGRST116") return null;
+      throw error;
+    }
+    return (data?.theme as string) ?? null;
+  });
+}
+
+export async function upsertUserTheme(userId: string, theme: string) {
+  if (!userId) return null;
+  return withClient(async (client) => {
+    const { error } = await client
+      .from("user_preferences")
+      .upsert(
+        { user_id: userId, theme, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" }
+      );
+    if (error) throw error;
+    return true;
+  });
+}
+
 export async function upsertGoalScore(userId: string, goalId: string, score: number) {
   if (!userId) {
     console.warn("Missing userId. Goal score not persisted.");
