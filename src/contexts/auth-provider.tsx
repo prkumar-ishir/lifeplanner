@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { isAuthApiError, type Session, type User } from "@supabase/supabase-js";
+import { isAuthApiError, type Provider, type Session, type User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type AuthContextValue = {
@@ -17,6 +17,7 @@ type AuthContextValue = {
   loading: boolean;
   signInWithPassword: (params: { email: string; password: string }) => Promise<void>;
   signUpWithPassword: (params: { email: string; password: string }) => Promise<void>;
+  signInWithOAuth: (provider: Provider) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -120,6 +121,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabase]
   );
 
+  const signInWithOAuth = useCallback(
+    async (provider: Provider) => {
+      if (!supabase) {
+        throw new Error("Supabase is not configured yet.");
+      }
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/auth/callback`
+          : undefined;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo },
+      });
+      if (error) {
+        throw error;
+      }
+    },
+    [supabase]
+  );
+
   const signOut = useCallback(async () => {
     if (!supabase) return;
     const { error } = await supabase.auth.signOut();
@@ -135,9 +156,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       signInWithPassword,
       signUpWithPassword,
+      signInWithOAuth,
       signOut,
     }),
-    [loading, session, signInWithPassword, signOut, signUpWithPassword]
+    [loading, session, signInWithOAuth, signInWithPassword, signOut, signUpWithPassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
