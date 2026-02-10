@@ -5,6 +5,16 @@ import type {
   WeeklyPlanPayload,
   GoalScore,
 } from "@/types/planner";
+import type {
+  AuditAction,
+  AuditLogRow,
+  ConsentRecord,
+  ConsentType,
+  DataExportRow,
+  EngagementMetric,
+  ReminderConfig,
+  UserRole,
+} from "@/types/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "./client";
 
@@ -114,10 +124,20 @@ export async function fetchPlannerEntries(userId: string) {
   if (!userId) return {};
   const rows =
     (await withClient(async (client) => {
-      const { data, error } = await client
+      let query = client
         .from("planner_entries")
         .select("step_id,data")
         .eq("user_id", userId);
+      // Try soft-delete filter; fall back gracefully if column doesn't exist yet
+      const { data, error } = await query.is("deleted_at", null);
+      if (error && error.message?.includes("deleted_at")) {
+        const fallback = await client
+          .from("planner_entries")
+          .select("step_id,data")
+          .eq("user_id", userId);
+        if (fallback.error) throw fallback.error;
+        return fallback.data as PlannerEntryRow[];
+      }
       if (error) throw error;
       return data as PlannerEntryRow[];
     })) ?? [];
@@ -139,7 +159,16 @@ export async function fetchWeeklyPlans(userId: string) {
       const { data, error } = await client
         .from("weekly_plans")
         .select("*")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .is("deleted_at", null);
+      if (error && error.message?.includes("deleted_at")) {
+        const fallback = await client
+          .from("weekly_plans")
+          .select("*")
+          .eq("user_id", userId);
+        if (fallback.error) throw fallback.error;
+        return fallback.data as WeeklyPlanRow[];
+      }
       if (error) throw error;
       return data as WeeklyPlanRow[];
     })) ?? [];
@@ -183,7 +212,16 @@ export async function fetchGoalScores(userId: string) {
       const { data, error } = await client
         .from("goal_scores")
         .select("goal_id,score")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .is("deleted_at", null);
+      if (error && error.message?.includes("deleted_at")) {
+        const fallback = await client
+          .from("goal_scores")
+          .select("goal_id,score")
+          .eq("user_id", userId);
+        if (fallback.error) throw fallback.error;
+        return fallback.data as { goal_id: string; score: number }[];
+      }
       if (error) throw error;
       return data as { goal_id: string; score: number }[];
     })) ?? [];
@@ -240,4 +278,314 @@ export async function upsertGoalScore(userId: string, goalId: string, score: num
     if (error) throw error;
     return true;
   });
+}
+
+// ─── RBAC ────────────────────────────────────────────────────
+
+export async function fetchUserRole(userId: string): Promise<UserRole | null> {
+  if (!userId) return null;
+  return withClient(async (client) => {
+    const { data, error } = await client
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .single();
+    if (error) {
+      if (error.code === "PGRST116") return null;
+      throw error;
+    }
+    return (data?.role as UserRole) ?? null;
+  });
+}
+
+export async function upsertUserRole(
+  userId: string,
+  role: UserRole,
+  assignedBy: string
+) {
+  if (!userId) return null;
+  return withClient(async (client) => {
+    const { error } = await client
+      .from("user_roles")
+      .upsert(
+        { user_id: userId, role, assigned_by: assignedBy },
+        { onConflict: "user_id" }
+      );
+    if (error) throw error;
+    return true;
+  });
+}
+
+// ─── Audit Logs ──────────────────────────────────────────────
+
+export async function insertAuditLog(entry: {
+  actorId: string;
+  targetUserId?: string;
+  action: AuditAction;
+  resource?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  if (!entry.actorId) return null;
+  return withClient(async (client) => {
+    const { error } = await client.from("audit_logs").insert({
+      actor_id: entry.actorId,
+      target_user_id: entry.targetUserId ?? null,
+      action: entry.action,
+      resource: entry.resource ?? null,
+      metadata: entry.metadata ?? {},
+    });
+    if (error) throw error;
+    return true;
+  });
+}
+
+export async function fetchAuditLogs(filters?: {
+  actorId?: string;
+  targetUserId?: string;
+  action?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<AuditLogRow[]> {
+  return (
+    (await withClient(async (client) => {
+      let query = client
+        .from("audit_logs")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (filters?.actorId) query = query.eq("actor_id", filters.actorId);
+      if (filters?.targetUserId)
+        query = query.eq("target_user_id", filters.targetUserId);
+      if (filters?.action) query = query.eq("action", filters.action);
+      if (filters?.limit) query = query.limit(filters.limit);
+      if (filters?.offset) query = query.range(filters.offset, filters.offset + (filters.limit ?? 50) - 1);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as AuditLogRow[];
+    })) ?? []
+  );
+}
+
+// ─── Consent Records ─────────────────────────────────────────
+
+export async function fetchUserConsent(userId: string): Promise<ConsentRecord[]> {
+  if (!userId) return [];
+  return (
+    (await withClient(async (client) => {
+      const { data, error } = await client
+        .from("consent_records")
+        .select("*")
+        .eq("user_id", userId);
+      if (error) throw error;
+      return data as ConsentRecord[];
+    })) ?? []
+  );
+}
+
+export async function upsertConsent(
+  userId: string,
+  consentType: ConsentType,
+  granted: boolean
+) {
+  if (!userId) return null;
+  return withClient(async (client) => {
+    const now = new Date().toISOString();
+    const { error } = await client.from("consent_records").upsert(
+      {
+        user_id: userId,
+        consent_type: consentType,
+        granted,
+        granted_at: granted ? now : null,
+        revoked_at: granted ? null : now,
+        updated_at: now,
+      },
+      { onConflict: "user_id,consent_type" }
+    );
+    if (error) throw error;
+    return true;
+  });
+}
+
+// ─── Reminder Configs ────────────────────────────────────────
+
+export async function fetchReminderConfig(
+  targetUserId: string
+): Promise<ReminderConfig | null> {
+  if (!targetUserId) return null;
+  return withClient(async (client) => {
+    const { data, error } = await client
+      .from("reminder_configs")
+      .select("*")
+      .eq("target_user_id", targetUserId)
+      .single();
+    if (error) {
+      if (error.code === "PGRST116") return null;
+      throw error;
+    }
+    return data as ReminderConfig;
+  });
+}
+
+export async function upsertReminderConfig(config: {
+  targetUserId: string;
+  configuredBy: string;
+  frequency: string;
+  dayOfWeek?: number | null;
+  timeOfDay?: string;
+  active?: boolean;
+}) {
+  if (!config.targetUserId) return null;
+  return withClient(async (client) => {
+    const { error } = await client.from("reminder_configs").upsert(
+      {
+        target_user_id: config.targetUserId,
+        configured_by: config.configuredBy,
+        frequency: config.frequency,
+        day_of_week: config.dayOfWeek ?? null,
+        time_of_day: config.timeOfDay ?? "09:00",
+        active: config.active ?? true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "target_user_id" }
+    );
+    if (error) throw error;
+    return true;
+  });
+}
+
+export async function fetchAllReminderConfigs(): Promise<ReminderConfig[]> {
+  return (
+    (await withClient(async (client) => {
+      const { data, error } = await client
+        .from("reminder_configs")
+        .select("*");
+      if (error) throw error;
+      return data as ReminderConfig[];
+    })) ?? []
+  );
+}
+
+// ─── Engagement Metrics (Admin) ──────────────────────────────
+
+export async function fetchEngagementMetrics(): Promise<EngagementMetric[]> {
+  return (
+    (await withClient(async (client) => {
+      const { data, error } = await client.rpc("get_engagement_metrics");
+      if (error) throw error;
+      return data as EngagementMetric[];
+    })) ?? []
+  );
+}
+
+// ─── Data Exports ────────────────────────────────────────────
+
+export async function insertDataExport(params: {
+  userId: string;
+  requestedBy: string;
+  exportType?: string;
+}): Promise<DataExportRow | null> {
+  if (!params.userId) return null;
+  return withClient(async (client) => {
+    const { data, error } = await client
+      .from("data_exports")
+      .insert({
+        user_id: params.userId,
+        requested_by: params.requestedBy,
+        export_type: params.exportType ?? "pdf",
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as DataExportRow;
+  });
+}
+
+export async function fetchDataExports(userId: string): Promise<DataExportRow[]> {
+  if (!userId) return [];
+  return (
+    (await withClient(async (client) => {
+      const { data, error } = await client
+        .from("data_exports")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as DataExportRow[];
+    })) ?? []
+  );
+}
+
+// ─── Soft-Delete & Restore ───────────────────────────────────
+
+export async function softDeleteUserData(userId: string) {
+  if (!userId) return null;
+  const now = new Date().toISOString();
+  return withClient(async (client) => {
+    const results = await Promise.all([
+      client
+        .from("planner_entries")
+        .update({ deleted_at: now })
+        .eq("user_id", userId)
+        .is("deleted_at", null),
+      client
+        .from("weekly_plans")
+        .update({ deleted_at: now })
+        .eq("user_id", userId)
+        .is("deleted_at", null),
+      client
+        .from("goal_scores")
+        .update({ deleted_at: now })
+        .eq("user_id", userId)
+        .is("deleted_at", null),
+    ]);
+    for (const { error } of results) {
+      if (error) throw error;
+    }
+    return true;
+  });
+}
+
+export async function restoreUserData(userId: string) {
+  if (!userId) return null;
+  return withClient(async (client) => {
+    const results = await Promise.all([
+      client
+        .from("planner_entries")
+        .update({ deleted_at: null })
+        .eq("user_id", userId)
+        .not("deleted_at", "is", null),
+      client
+        .from("weekly_plans")
+        .update({ deleted_at: null })
+        .eq("user_id", userId)
+        .not("deleted_at", "is", null),
+      client
+        .from("goal_scores")
+        .update({ deleted_at: null })
+        .eq("user_id", userId)
+        .not("deleted_at", "is", null),
+    ]);
+    for (const { error } of results) {
+      if (error) throw error;
+    }
+    return true;
+  });
+}
+
+// ─── Full User Data Export ───────────────────────────────────
+
+export async function fetchAllUserDataForExport(userId: string) {
+  if (!userId)
+    return { entries: {}, weeklyPlans: {}, goalScores: {} };
+
+  const [entries, weeklyPlans, goalScores] = await Promise.all([
+    fetchPlannerEntries(userId),
+    fetchWeeklyPlans(userId),
+    fetchGoalScores(userId),
+  ]);
+
+  return { entries, weeklyPlans, goalScores };
 }

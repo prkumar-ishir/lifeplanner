@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { plannerFlow } from "@/data/plannerFlow";
 import { cn } from "@/lib/utils";
 import { usePlannerStore } from "@/store/plannerStore";
+import { useRole } from "@/contexts/role-provider";
 
 const navItems = [
   {
@@ -27,6 +28,33 @@ const navItems = [
   },
 ];
 
+const adminNavItems = [
+  {
+    href: "/admin",
+    label: "Admin Dashboard",
+    description: "Usage & engagement metrics.",
+    icon: "📊",
+  },
+  {
+    href: "/admin/audit",
+    label: "Audit Logs",
+    description: "Access and change history.",
+    icon: "📋",
+  },
+  {
+    href: "/admin/reminders",
+    label: "Reminders",
+    description: "Configure reminder frequencies.",
+    icon: "🔔",
+  },
+  {
+    href: "/admin/exports",
+    label: "Data Exports",
+    description: "Employee data export management.",
+    icon: "📥",
+  },
+];
+
 /**
  * SidebarNav shows journey progress + links to the key authenticated routes.
  * It reads completion data from the planner store so links stay contextual.
@@ -34,6 +62,7 @@ const navItems = [
 export default function SidebarNav() {
   const pathname = usePathname();
   const entries = usePlannerStore((state) => state.entries);
+  const { isAdmin } = useRole();
 
   const completedSteps = Object.keys(entries).length;
   const totalSteps = plannerFlow.length;
@@ -122,6 +151,36 @@ export default function SidebarNav() {
           ))}
         </div>
       </section>
+
+      {isAdmin && (
+        <section className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Admin
+          </p>
+          {adminNavItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "block rounded-2xl border px-4 py-3 transition",
+                  isActive
+                    ? "border-brand bg-brand text-white shadow-lg"
+                    : "border-transparent bg-white/60 text-slate-700 hover:border-slate-200 hover:bg-white"
+                )}
+              >
+                <span className="text-sm font-medium">
+                  {item.icon} {item.label}
+                </span>
+                <p className={cn("text-xs", isActive ? "text-white/70" : "text-slate-500")}>
+                  {item.description}
+                </p>
+              </Link>
+            );
+          })}
+        </section>
+      )}
     </div>
   );
 }

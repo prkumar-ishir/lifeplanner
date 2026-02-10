@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import SidebarNav from "@/components/navigation/sidebar-nav";
 import { useAuth } from "@/contexts/auth-provider";
+import { useRole } from "@/contexts/role-provider";
 import { usePlannerDataSync } from "@/hooks/usePlannerDataSync";
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
  */
 export default function AppShell({ children }: Props) {
   const { user, loading, signOut } = useAuth();
+  const { isAdmin } = useRole();
   const { isHydrated } = usePlannerDataSync();
 
   // `workspace` renders the right glass panel for loading, auth, syncing, or content states.
@@ -75,6 +77,14 @@ export default function AppShell({ children }: Props) {
           <div className="flex flex-shrink-0 items-center gap-3">
             {user ? (
               <>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link
                   href="/settings"
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300"

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { isAuthApiError, type Provider, type Session, type User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { insertAuditLog } from "@/lib/supabase/repositories";
 
 type AuthContextValue = {
   session: Session | null;
@@ -48,10 +49,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!isMounted) return;
       setSession(newSession);
       setLoading(false);
+
+      if (event === "SIGNED_IN" && newSession?.user?.id) {
+        insertAuditLog({ actorId: newSession.user.id, action: "login" }).catch(
+          () => {}
+        );
+      }
     });
 
     return () => {
