@@ -12,32 +12,33 @@ import type { UserRole } from "@/types/admin";
 export function useUserRole() {
   const { user } = useAuth();
   const [role, setRole] = useState<UserRole | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!user?.id) {
-      setRole(null);
-      setIsLoading(false);
       return;
     }
-
-    let cancelled = false;
 
     fetchUserRole(user.id).then((r) => {
       if (!cancelled) {
         setRole(r ?? "employee");
-        setIsLoading(false);
+        setLoadedUserId(user.id);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user]);
+
+  const resolvedRole = user?.id && loadedUserId === user.id ? role : null;
+  const isLoading = Boolean(user?.id) && loadedUserId !== user.id;
 
   return {
-    role,
-    isAdmin: role === "admin",
+    role: resolvedRole,
+    isAdmin: resolvedRole === "admin",
     isLoading,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-provider";
 import {
   fetchEngagementMetrics,
@@ -33,35 +33,32 @@ export default function RemindersPage() {
     );
   }, [user?.id]);
 
-  const handleSave = useCallback(
-    async (config: {
-      targetUserId: string;
-      frequency: ReminderFrequency;
-      dayOfWeek: number | null;
-      timeOfDay: string;
-      active: boolean;
-    }) => {
-      if (!user?.id) return;
+  async function handleSave(config: {
+    targetUserId: string;
+    frequency: ReminderFrequency;
+    dayOfWeek: number | null;
+    timeOfDay: string;
+    active: boolean;
+  }) {
+    if (!user?.id) return;
 
-      await upsertReminderConfig({
-        targetUserId: config.targetUserId,
-        configuredBy: user.id,
-        frequency: config.frequency,
-        dayOfWeek: config.dayOfWeek,
-        timeOfDay: config.timeOfDay,
-        active: config.active,
-      });
+    await upsertReminderConfig({
+      targetUserId: config.targetUserId,
+      configuredBy: user.id,
+      frequency: config.frequency,
+      dayOfWeek: config.dayOfWeek,
+      timeOfDay: config.timeOfDay,
+      active: config.active,
+    });
 
-      await insertAuditLog({
-        actorId: user.id,
-        targetUserId: config.targetUserId,
-        action: "update_reminder_config",
-        resource: "reminder_configs",
-        metadata: { frequency: config.frequency },
-      });
-    },
-    [user?.id]
-  );
+    await insertAuditLog({
+      actorId: user.id,
+      targetUserId: config.targetUserId,
+      action: "update_reminder_config",
+      resource: "reminder_configs",
+      metadata: { frequency: config.frequency },
+    });
+  }
 
   if (loading) {
     return (

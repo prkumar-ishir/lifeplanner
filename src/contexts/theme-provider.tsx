@@ -2,10 +2,8 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import { useAuth } from "@/contexts/auth-provider";
@@ -46,47 +44,43 @@ function applyThemeToDOM(id: ThemeId) {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [theme, setThemeState] = useState<ThemeId>("blue");
-  const [loading, setLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
-  // Load saved theme when user changes
   useEffect(() => {
+    let cancelled = false;
+
     if (!user?.id) {
-      setLoading(false);
       return;
     }
-
-    let cancelled = false;
-    setLoading(true);
 
     fetchUserTheme(user.id).then((saved) => {
       if (cancelled) return;
       const id = (saved && saved in themePresets ? saved : "blue") as ThemeId;
       setThemeState(id);
-      applyThemeToDOM(id);
-      setLoading(false);
+      setLoadedUserId(user.id);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user]);
 
-  const setTheme = useCallback(
-    (id: ThemeId) => {
-      setThemeState(id);
-      applyThemeToDOM(id);
-      // Persist in background
-      if (user?.id) {
-        upsertUserTheme(user.id, id).catch(console.error);
-      }
-    },
-    [user?.id]
-  );
+  const effectiveTheme = user?.id ? theme : "blue";
 
-  const value = useMemo<ThemeContextValue>(
-    () => ({ theme, setTheme, loading }),
-    [theme, setTheme, loading]
-  );
+  useEffect(() => {
+    applyThemeToDOM(effectiveTheme);
+  }, [effectiveTheme]);
+
+  function setTheme(id: ThemeId) {
+    setThemeState(id);
+    if (user?.id) {
+      upsertUserTheme(user.id, id).catch(console.error);
+    }
+  }
+
+  const loading = Boolean(user?.id) && loadedUserId !== user.id;
+
+  const value: ThemeContextValue = { theme: effectiveTheme, setTheme, loading };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
