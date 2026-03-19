@@ -18,6 +18,10 @@ export type AuditAction =
   | "admin_export_pdf"
   | "admin_view_metrics"
   | "admin_view_audit"
+  | "admin_view_quotes"
+  | "create_quote"
+  | "update_quote"
+  | "delete_quote"
   | "update_reminder_config"
   | "consent_granted"
   | "consent_revoked"
@@ -84,4 +88,21 @@ export type DataExportRow = {
   export_type: string;
   created_at: string;
   completed_at: string | null;
+};
+
+export type QuotePlacement =
+  | "onboarding"
+  | "dashboard"
+  | "planner"
+  | "weekly_planner";
+
+export type MotivationalQuote = {
+  id: string;
+  quote_text: string;
+  author: string | null;
+  placements: QuotePlacement[];
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 };

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import SidebarNav from "@/components/navigation/sidebar-nav";
+import PlacementQuote from "@/components/quotes/placement-quote";
 import { useAuth } from "@/contexts/auth-provider";
 import { useRole } from "@/contexts/role-provider";
 import { usePlannerDataSync } from "@/hooks/usePlannerDataSync";
@@ -159,6 +160,7 @@ export default function AppShell({ children }: Props) {
                   Life Planner
                 </p>
                 <div className="mt-5 space-y-4 text-base leading-relaxed text-slate-700">
+                  <PlacementQuote placement="onboarding" eyebrow="Starting point" compact />
                   <p>
                     I hope this Life Planner will be your tool to create
                     intentionality in your life based on the future you desire
@@ -203,6 +205,7 @@ export default function AppShell({ children }: Props) {
                   Introduction To Life Planner
                 </p>
                 <div className="mt-5 max-h-[55vh] space-y-4 overflow-y-auto pr-1 text-sm leading-relaxed text-slate-700">
+                  <PlacementQuote placement="onboarding" eyebrow="Keep this in mind" compact />
                   <p>
                     To succeed in getting where you want to go, you will need to create a
                     Life Plan. A road map to guide you towards your ultimate goal and help

@@ -12,6 +12,8 @@ import type {
   ConsentType,
   DataExportRow,
   EngagementMetric,
+  MotivationalQuote,
+  QuotePlacement,
   ReminderConfig,
   UserRole,
 } from "@/types/admin";
@@ -167,6 +169,17 @@ type WeeklyPlanRow = {
   wins: string[];
   schedule_notes: string | null;
   data: WeeklyPlanData | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type MotivationalQuoteRow = {
+  id: string;
+  quote_text: string;
+  author: string | null;
+  placements: string[] | null;
+  active: boolean;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -534,6 +547,97 @@ export async function fetchAllReminderConfigs(): Promise<ReminderConfig[]> {
       return data as ReminderConfig[];
     })) ?? []
   );
+}
+
+// ─── Motivational Quotes ─────────────────────────────────────
+
+export async function fetchMotivationalQuotes(filters?: {
+  placement?: QuotePlacement;
+  includeInactive?: boolean;
+}): Promise<MotivationalQuote[]> {
+  return (
+    (await withClient(async (client) => {
+      let query = client
+        .from("motivational_quotes")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (!filters?.includeInactive) {
+        query = query.eq("active", true);
+      }
+
+      if (filters?.placement) {
+        query = query.contains("placements", [filters.placement]);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data as MotivationalQuoteRow[]).map((row) => ({
+        ...row,
+        placements: (row.placements ?? []) as QuotePlacement[],
+      }));
+    })) ?? []
+  );
+}
+
+export async function insertMotivationalQuote(params: {
+  quoteText: string;
+  author?: string | null;
+  placements: QuotePlacement[];
+  active?: boolean;
+  createdBy?: string | null;
+}) {
+  return withClient(async (client) => {
+    const { data, error } = await client
+      .from("motivational_quotes")
+      .insert({
+        quote_text: params.quoteText,
+        author: params.author?.trim() || null,
+        placements: params.placements,
+        active: params.active ?? true,
+        created_by: params.createdBy ?? null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as MotivationalQuoteRow;
+  });
+}
+
+export async function updateMotivationalQuote(params: {
+  quoteId: string;
+  quoteText: string;
+  author?: string | null;
+  placements: QuotePlacement[];
+  active: boolean;
+}) {
+  return withClient(async (client) => {
+    const { data, error } = await client
+      .from("motivational_quotes")
+      .update({
+        quote_text: params.quoteText,
+        author: params.author?.trim() || null,
+        placements: params.placements,
+        active: params.active,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.quoteId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as MotivationalQuoteRow;
+  });
+}
+
+export async function deleteMotivationalQuote(quoteId: string) {
+  return withClient(async (client) => {
+    const { error } = await client
+      .from("motivational_quotes")
+      .delete()
+      .eq("id", quoteId);
+    if (error) throw error;
+    return true;
+  });
 }
 
 // ─── Engagement Metrics (Admin) ──────────────────────────────

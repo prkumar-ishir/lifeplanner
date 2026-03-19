@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import PlacementQuote from "@/components/quotes/placement-quote";
 import {
   deleteWeeklyPlan,
   persistWeeklyPlan,
@@ -297,6 +298,8 @@ export default function WeeklyPlannerPage() {
 
   return (
     <div className="space-y-8 pb-12">
+      <PlacementQuote placement="weekly_planner" eyebrow="Execution mindset" />
+
       <section className="glass-panel space-y-6 p-5 md:p-6">
         <header className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">

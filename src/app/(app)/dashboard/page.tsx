@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PlacementQuote from "@/components/quotes/placement-quote";
 import { plannerFlow } from "@/data/plannerFlow";
 import { cn, formatMonth } from "@/lib/utils";
 import { usePlannerStore } from "@/store/plannerStore";
@@ -21,13 +22,10 @@ export default function DashboardPage() {
   const router = useRouter();
   const [goalScores, setGoalScores] = useState<Record<string, number>>({});
 
-  const completedSteps = Object.keys(entries).length;
-  const progress = Math.round((completedSteps / plannerFlow.length) * 100);
   const latestWeeklyPlan = Object.values(weeklyPlans).sort(
     (a, b) => b.createdAt.localeCompare(a.createdAt)
   )[0];
 
-  const isProgressComplete = progress >= 100;
   const goalStep = plannerFlow.find((step) => step.id === "goal-setting");
   const goalEntries = entries["goal-setting"];
   // Translate saved goal step fields into spotlight cards with optional slider control.
@@ -55,7 +53,6 @@ export default function DashboardPage() {
   useEffect(() => {
     let isMounted = true;
     if (!user?.id) {
-      setGoalScores({});
       return;
     }
     fetchGoalScores(user.id)
@@ -82,6 +79,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 pt-4">
+      <PlacementQuote placement="dashboard" eyebrow="Today's motivation" />
+
       {/* Top layout: left column stacks rhythm + journey progress, right column shows goals. */}
       <section className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="space-y-6">

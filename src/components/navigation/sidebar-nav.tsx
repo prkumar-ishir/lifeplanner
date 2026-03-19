@@ -10,6 +10,7 @@ import {
   Download,
   Gauge,
   LayoutDashboard,
+  Quote,
   ScrollText,
 } from "lucide-react";
 import { plannerFlow } from "@/data/plannerFlow";
@@ -62,6 +63,12 @@ const adminNavItems = [
     label: "Data Exports",
     description: "Employee data export management.",
     icon: Download,
+  },
+  {
+    href: "/admin/quotes",
+    label: "Quotes",
+    description: "Manage motivational quote placements.",
+    icon: Quote,
   },
 ];
 

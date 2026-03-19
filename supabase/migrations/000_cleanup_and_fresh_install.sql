@@ -50,12 +50,22 @@ DO $$ BEGIN
 EXCEPTION WHEN undefined_table THEN NULL;
 END $$;
 
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Authenticated users read active quotes" ON motivational_quotes;
+  DROP POLICY IF EXISTS "Admins read all quotes" ON motivational_quotes;
+  DROP POLICY IF EXISTS "Admins insert quotes" ON motivational_quotes;
+  DROP POLICY IF EXISTS "Admins update quotes" ON motivational_quotes;
+  DROP POLICY IF EXISTS "Admins delete quotes" ON motivational_quotes;
+EXCEPTION WHEN undefined_table THEN NULL;
+END $$;
+
 -- Drop functions
 DROP FUNCTION IF EXISTS is_admin(uuid);
 DROP FUNCTION IF EXISTS get_engagement_metrics();
 
 -- Drop tables (in dependency order)
 DROP TABLE IF EXISTS data_exports CASCADE;
+DROP TABLE IF EXISTS motivational_quotes CASCADE;
 DROP TABLE IF EXISTS reminder_configs CASCADE;
 DROP TABLE IF EXISTS consent_records CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
@@ -66,3 +76,5 @@ DROP INDEX IF EXISTS idx_audit_logs_actor;
 DROP INDEX IF EXISTS idx_audit_logs_target;
 DROP INDEX IF EXISTS idx_audit_logs_action;
 DROP INDEX IF EXISTS idx_audit_logs_created;
+DROP INDEX IF EXISTS idx_motivational_quotes_active;
+DROP INDEX IF EXISTS idx_motivational_quotes_placements;

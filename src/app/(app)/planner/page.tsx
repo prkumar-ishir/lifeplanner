@@ -7,6 +7,7 @@ import {
   type UseFormSetValue,
   type UseFormWatch,
 } from "react-hook-form";
+import PlacementQuote from "@/components/quotes/placement-quote";
 import { FlowStepper } from "@/components/planner/flow-stepper";
 import { plannerFlow } from "@/data/plannerFlow";
 import { persistPlannerEntry } from "@/lib/supabase/repositories";
@@ -131,6 +132,7 @@ export default function PlannerFlowPage() {
       {showGoalSettingGuide && (
         <GoalSettingGuideOverlay onDismiss={() => setShowGoalSettingGuide(false)} />
       )}
+      <PlacementQuote placement="planner" eyebrow="Placed for this step" />
       {/* Compact horizontal stepper keeps all eight milestones visible at once. */}
       <section className="glass-panel space-y-4 p-6">
         <div>
