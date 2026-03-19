@@ -7,17 +7,17 @@ const CONSENT_TYPES: { type: ConsentType; label: string; description: string }[]
   {
     type: "data_collection",
     label: "Data Collection",
-    description: "Allow the app to collect and store your life plan entries.",
+    description: "Allow admins to handle your Life Plan content for supported administrative workflows.",
   },
   {
     type: "data_retention",
     label: "Data Retention",
-    description: "Acknowledge the data retention policy for your records.",
+    description: "Allow deleted data to remain restorable during the retention period instead of being purged immediately.",
   },
   {
     type: "data_export",
     label: "Data Export",
-    description: "Allow exporting your data as downloadable reports.",
+    description: "Allow admins to export your data as downloadable reports on your behalf.",
   },
 ];
 

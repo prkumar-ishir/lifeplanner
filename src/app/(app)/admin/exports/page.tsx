@@ -7,27 +7,46 @@ import {
   fetchAllUserDataForExport,
   insertAuditLog,
   insertDataExport,
+  fetchAllConsentRecords,
 } from "@/lib/supabase/repositories";
 import { generateLifePlanPdf } from "@/lib/pdf/generate-life-plan-pdf";
 import { plannerFlow } from "@/data/plannerFlow";
-import type { EngagementMetric } from "@/types/admin";
+import type { ConsentType, EngagementMetric } from "@/types/admin";
 
 export default function AdminExportsPage() {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<EngagementMetric[]>([]);
+  const [consentMap, setConsentMap] = useState<
+    Record<string, Partial<Record<ConsentType, boolean>>>
+  >({});
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
-    fetchEngagementMetrics()
-      .then(setEmployees)
+    Promise.all([fetchEngagementMetrics(), fetchAllConsentRecords()])
+      .then(([employeeRows, consentRows]) => {
+        setEmployees(employeeRows);
+        const nextConsentMap: Record<
+          string,
+          Partial<Record<ConsentType, boolean>>
+        > = {};
+        for (const record of consentRows) {
+          nextConsentMap[record.user_id] ??= {};
+          nextConsentMap[record.user_id][record.consent_type] = record.granted;
+        }
+        setConsentMap(nextConsentMap);
+      })
       .finally(() => setLoading(false));
   }, [user?.id]);
 
   const handleExport = useCallback(
     async (targetUserId: string, email: string) => {
       if (!user?.id) return;
+      const consent = consentMap[targetUserId];
+      if (consent?.data_collection !== true || consent?.data_export !== true) {
+        return;
+      }
       setExporting(targetUserId);
       try {
         const data = await fetchAllUserDataForExport(targetUserId);
@@ -65,7 +84,7 @@ export default function AdminExportsPage() {
         setExporting(null);
       }
     },
-    [user?.id]
+    [consentMap, user?.id]
   );
 
   if (loading) {
@@ -100,6 +119,9 @@ export default function AdminExportsPage() {
               <th className="py-2 pr-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Weekly Plans
               </th>
+              <th className="py-2 pr-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Consent
+              </th>
               <th className="py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Actions
               </th>
@@ -120,16 +142,42 @@ export default function AdminExportsPage() {
                 <td className="py-3 pr-4 text-slate-600">
                   {emp.weekly_plan_count}
                 </td>
+                <td className="py-3 pr-4">
+                  <div className="flex flex-wrap gap-1">
+                    <ConsentPill
+                      label="Collection"
+                      granted={consentMap[emp.user_id]?.data_collection === true}
+                    />
+                    <ConsentPill
+                      label="Retention"
+                      granted={consentMap[emp.user_id]?.data_retention === true}
+                    />
+                    <ConsentPill
+                      label="Export"
+                      granted={consentMap[emp.user_id]?.data_export === true}
+                    />
+                  </div>
+                </td>
                 <td className="py-3">
                   <button
                     onClick={() => handleExport(emp.user_id, emp.email)}
-                    disabled={exporting === emp.user_id}
-                    className="rounded-lg bg-brand px-4 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark disabled:opacity-50"
+                    disabled={
+                      exporting === emp.user_id ||
+                      consentMap[emp.user_id]?.data_collection !== true ||
+                      consentMap[emp.user_id]?.data_export !== true
+                    }
+                    className="rounded-lg bg-brand px-4 py-1.5 text-xs font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {exporting === emp.user_id
                       ? "Exporting…"
                       : "Export PDF"}
                   </button>
+                  {(consentMap[emp.user_id]?.data_collection !== true ||
+                    consentMap[emp.user_id]?.data_export !== true) && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      Blocked by user consent.
+                    </p>
+                  )}
                 </td>
               </tr>
             ))}
@@ -142,5 +190,25 @@ export default function AdminExportsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function ConsentPill({
+  label,
+  granted,
+}: {
+  label: string;
+  granted: boolean;
+}) {
+  return (
+    <span
+      className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+        granted
+          ? "bg-emerald-100 text-emerald-700"
+          : "bg-amber-100 text-amber-700"
+      }`}
+    >
+      {label}
+    </span>
   );
 }

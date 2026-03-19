@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { EngagementMetric } from "@/types/admin";
+import type { ConsentType, EngagementMetric } from "@/types/admin";
 
 type SortKey = "email" | "steps_completed" | "weekly_plan_count" | "last_entry_at";
+const TABLE_RENDER_REFERENCE_TIME = Date.now();
 
 function relativeTime(dateStr: string | null): string {
   if (!dateStr) return "Never";
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const diff = TABLE_RENDER_REFERENCE_TIME - new Date(dateStr).getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   if (days === 0) return "Today";
   if (days === 1) return "Yesterday";
@@ -18,10 +19,11 @@ function relativeTime(dateStr: string | null): string {
 
 type Props = {
   metrics: EngagementMetric[];
+  consentMap?: Record<string, Partial<Record<ConsentType, boolean>>>;
   onExport?: (userId: string, email: string) => void;
 };
 
-export default function EmployeeTable({ metrics, onExport }: Props) {
+export default function EmployeeTable({ metrics, consentMap = {}, onExport }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("email");
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -87,7 +89,7 @@ export default function EmployeeTable({ metrics, onExport }: Props) {
           {sorted.map((m) => {
             const daysSinceActive = m.last_entry_at
               ? Math.floor(
-                  (Date.now() - new Date(m.last_entry_at).getTime()) /
+                  (TABLE_RENDER_REFERENCE_TIME - new Date(m.last_entry_at).getTime()) /
                     (1000 * 60 * 60 * 24)
                 )
               : Infinity;
@@ -123,6 +125,7 @@ export default function EmployeeTable({ metrics, onExport }: Props) {
                 </td>
                 <td className="py-3">
                   <div className="flex gap-2">
+                    <ConsentBadges consent={consentMap[m.user_id]} />
                     <Link
                       href={`/admin/reminders?user=${m.user_id}`}
                       className="text-xs font-medium text-brand hover:underline"
@@ -132,7 +135,11 @@ export default function EmployeeTable({ metrics, onExport }: Props) {
                     {onExport && (
                       <button
                         onClick={() => onExport(m.user_id, m.email)}
-                        className="text-xs font-medium text-brand hover:underline"
+                        disabled={
+                          consentMap[m.user_id]?.data_collection !== true ||
+                          consentMap[m.user_id]?.data_export !== true
+                        }
+                        className="text-xs font-medium text-brand hover:underline disabled:cursor-not-allowed disabled:text-slate-400 disabled:no-underline"
                       >
                         Export
                       </button>
@@ -149,6 +156,52 @@ export default function EmployeeTable({ metrics, onExport }: Props) {
           No employee data found.
         </p>
       )}
+    </div>
+  );
+}
+
+function ConsentBadges({
+  consent,
+}: {
+  consent?: Partial<Record<ConsentType, boolean>>;
+}) {
+  if (!consent) {
+    return (
+      <span className="text-xs text-slate-400">
+        No consent
+      </span>
+    );
+  }
+
+  const badges = [
+    {
+      label: "Collection",
+      allowed: consent.data_collection === true,
+    },
+    {
+      label: "Retention",
+      allowed: consent.data_retention === true,
+    },
+    {
+      label: "Export",
+      allowed: consent.data_export === true,
+    },
+  ];
+
+  return (
+    <div className="flex gap-1">
+      {badges.map((badge) => (
+        <span
+          key={badge.label}
+          className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+            badge.allowed
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          {badge.label}
+        </span>
+      ))}
     </div>
   );
 }

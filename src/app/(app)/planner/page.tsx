@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   useForm,
   type UseFormRegister,
+  type UseFormSetValue,
   type UseFormWatch,
 } from "react-hook-form";
 import { FlowStepper } from "@/components/planner/flow-stepper";
@@ -26,6 +27,7 @@ export default function PlannerFlowPage() {
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showGoalSettingGuide, setShowGoalSettingGuide] = useState(false);
   const [toast, setToast] = useState<null | {
     message: string;
     tone: "success" | "error";
@@ -40,7 +42,7 @@ export default function PlannerFlowPage() {
     }, {});
   }, [entries, step]);
 
-  const { register, handleSubmit, reset, watch } = useForm<StepFormValues>({
+  const { register, handleSubmit, reset, watch, setValue } = useForm<StepFormValues>({
     defaultValues: baseValues,
   });
 
@@ -66,6 +68,10 @@ export default function PlannerFlowPage() {
     const timeout = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    setShowGoalSettingGuide(step.id === "goal-setting");
+  }, [step.id]);
 
   const highestCompleted = completedIndices.length
     ? Math.max(...completedIndices)
@@ -122,6 +128,9 @@ export default function PlannerFlowPage() {
           }}
         />
       )}
+      {showGoalSettingGuide && (
+        <GoalSettingGuideOverlay onDismiss={() => setShowGoalSettingGuide(false)} />
+      )}
       {/* Compact horizontal stepper keeps all eight milestones visible at once. */}
       <section className="glass-panel space-y-4 p-6">
         <div>
@@ -148,7 +157,13 @@ export default function PlannerFlowPage() {
         )}
 
         <form className="space-y-6" onSubmit={onSubmit}>
-          <StepFields step={step} register={register} watch={watch} />
+          <StepFields
+            step={step}
+            register={register}
+            setValue={setValue}
+            watch={watch}
+            onOpenGoalSettingGuide={() => setShowGoalSettingGuide(true)}
+          />
 
           <div className="flex flex-wrap gap-3">
             <button
@@ -193,13 +208,52 @@ type FieldRendererProps = {
 type StepFieldsProps = {
   step: PlannerStep;
   register: UseFormRegister<StepFormValues>;
+  setValue: UseFormSetValue<StepFormValues>;
   watch: UseFormWatch<StepFormValues>;
+  onOpenGoalSettingGuide: () => void;
 };
 
 // StepFields picks the right renderer for each planner step.
-function StepFields({ step, register, watch }: StepFieldsProps) {
+function StepFields({
+  step,
+  register,
+  setValue,
+  watch,
+  onOpenGoalSettingGuide,
+}: StepFieldsProps) {
   if (step.customLayout === "commitmentLetter") {
     return <CommitmentLetterFields register={register} />;
+  }
+
+  if (step.customLayout === "purposeInLife") {
+    return <PurposeInLifeFields register={register} />;
+  }
+
+  if (step.customLayout === "pastYearReview") {
+    return <PastYearFields register={register} />;
+  }
+
+  if (step.customLayout === "yearAheadReview") {
+    return <YearAheadFields register={register} />;
+  }
+
+  if (step.customLayout === "goalSettingMatrix") {
+    return (
+      <GoalSettingFields
+        register={register}
+        onOpenGuide={onOpenGoalSettingGuide}
+      />
+    );
+  }
+
+  if (step.customLayout === "quarterlyPlanner") {
+    return (
+      <QuarterlyPlannerFields
+        register={register}
+        setValue={setValue}
+        watch={watch}
+      />
+    );
   }
 
   if (step.customLayout === "visionQuadrants") {
@@ -282,30 +336,946 @@ type CustomFieldBaseProps = {
  */
 function CommitmentLetterFields({ register }: CustomFieldBaseProps) {
   return (
-    <div className="space-y-4 rounded-3xl border border-slate-100 bg-gradient-to-br from-white to-slate-50 p-6">
-      <p className="text-sm text-slate-600">
-        Write this like a letter to yourself. Anchor into why this promise matters
-        and the energy you want to bring into the next chapter.
-      </p>
-      <div className="flex flex-wrap items-center gap-2 text-lg font-semibold text-slate-800">
-        <span>I</span>
+    <div className="space-y-6 rounded-3xl border border-slate-100 bg-gradient-to-br from-white to-slate-50 p-6">
+      <p className="text-lg font-normal leading-relaxed text-slate-800">
+        I,{" "}
         <input
           {...register("commitment_author")}
-          placeholder="your name"
-          className="min-w-[120px] border-b-2 border-dashed border-slate-400 bg-transparent px-2 pb-1 text-lg font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none"
+          placeholder=""
+          className="inline-block w-80 max-w-full border-b-2 border-dashed border-slate-400 bg-transparent px-2 pb-1 align-baseline text-lg font-normal text-slate-900 placeholder:text-slate-400 focus:outline-none"
         />
-        <span>am committed to</span>
-      </div>
-      <textarea
-        {...register("commitment_letter")}
-        rows={6}
-        placeholder="Describe how you will show up for yourself, the standards you are keeping, and the support you will call in."
-        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-      />
-      <p className="text-xs text-slate-500">
-        Hint: speak in the present tense and write as if you are reading it on a day
-        when you need encouragement.
+        , am committed to using this Life Planner to turn my dreams into reality and
+        taking action on the things that matter to me the most and will help me become
+        the better version of myself. I am committed to not wasting this one life I
+        have. I will make sure I give my 100% in fulfilling my potential and making
+        the best of this life.
       </p>
+      <input type="hidden" {...register("commitment_letter")} defaultValue="" />
+
+      <div className="flex">
+        <label className="flex w-full max-w-xs items-center gap-3 text-sm font-semibold text-slate-700">
+          <span>Date</span>
+          <input
+            type="date"
+            {...register("commitment_date")}
+            placeholder=""
+            className="w-full border-b-2 border-dashed border-slate-400 bg-transparent px-1 pb-1 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
+          />
+        </label>
+      </div>
+
+      <label className="flex flex-col gap-2">
+        <span className="text-sm font-semibold text-slate-700">
+          Working with the Life Planner is really important to me because...
+        </span>
+        <textarea
+          {...register("commitment_why")}
+          rows={4}
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+        />
+      </label>
+
+      <label className="flex flex-col gap-2">
+        <span className="text-sm font-semibold text-slate-700">
+          If I finish 5 days of working with this planner. I will reward myself with...
+        </span>
+        <textarea
+          {...register("commitment_reward")}
+          rows={3}
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+        />
+      </label>
+
+      <label className="flex flex-col gap-2">
+        <span className="text-sm font-semibold text-slate-700">
+          If I don&apos;t finish 5 days of writing this journal, I will promise to...
+        </span>
+        <textarea
+          {...register("commitment_promise")}
+          rows={3}
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+        />
+      </label>
+
+      <label className="flex flex-col gap-2">
+        <span className="text-sm font-semibold text-slate-700">
+          I will do the following things to ensure I become intentional everyday...
+        </span>
+        <textarea
+          {...register("commitment_daily_actions")}
+          rows={5}
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+        />
+      </label>
+    </div>
+  );
+}
+
+function PurposeInLifeFields({ register }: CustomFieldBaseProps) {
+  const questions = [
+    { id: "purpose_q_happiest", label: "When have you been happiest in life?" },
+    {
+      id: "purpose_q_proud",
+      label: "What has made you truly proud of yourself?",
+    },
+    {
+      id: "purpose_q_admire",
+      label: "What qualities do you most admire in other people?",
+    },
+    {
+      id: "purpose_q_alive",
+      label: "What makes you feel alive and energized?",
+    },
+    {
+      id: "purpose_q_happy_daily",
+      label: "How happy do you feel on an everyday basis?",
+    },
+    { id: "purpose_q_thankful", label: "What am I thankful for?" },
+    {
+      id: "purpose_q_turning_points",
+      label: "What are the turning points in my life?",
+    },
+    {
+      id: "purpose_q_change",
+      label: "What one change can make your life happier?",
+    },
+    {
+      id: "purpose_q_activities",
+      label:
+        "What activities do you love doing, even when it may be not fun for others?",
+    },
+    {
+      id: "purpose_q_learning",
+      label: "What things do you love learning about?",
+    },
+    {
+      id: "purpose_q_easy",
+      label: "What do you find easy that other people struggle with?",
+    },
+    {
+      id: "purpose_q_motivates",
+      label: "What motivates you and gets you off the bed every morning?",
+    },
+  ] as const;
+
+  const valueRows = Array.from({ length: 10 }, (_, rowIndex) => [
+    `purpose_value_${rowIndex * 3 + 1}`,
+    `purpose_value_${rowIndex * 3 + 2}`,
+    `purpose_value_${rowIndex * 3 + 3}`,
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3 text-sm leading-relaxed text-slate-700">
+        <h3 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+          PURPOSE IN LIFE
+        </h3>
+        <p>
+          Finding your purpose means finding a way to use your unique gifts,
+          skills, and passions you have to live a fulfilled and happy life. For
+          most of us it takes a lifelong experience of discovering, experimenting,
+          reflecting and trying.
+        </p>
+        <p>
+          Purpose can guide in - life decisions, influence behavior, shape goals,
+          offer a sense of direction, create meaning and eliminate distractions to
+          create ultimate focus.
+        </p>
+        <p>
+          The questions below will help you find the intersection between your
+          purpose, passions, unique skills and what you find of most value to you.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {questions.map((question) => (
+          <label key={question.id} className="flex flex-col gap-2">
+            <span className="text-sm font-semibold text-slate-700">{question.label}</span>
+            <textarea
+              {...register(question.id)}
+              rows={5}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            />
+          </label>
+        ))}
+      </div>
+
+      <div className="space-y-3 text-sm leading-relaxed text-slate-700">
+        <h3 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+          MY VALUES
+        </h3>
+        <p>
+          Your Values are the things that you believe are important in the way you
+          live and work. Important and lasting beliefs or ideals shared by the
+          members of a culture/ family about what is good or bad and desirable or
+          undesirable.
+        </p>
+        <p>
+          List down your values that relate to you, then eliminate the ones that
+          naturally combine and aim for top 4-5 values that most represent you.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-200">
+        <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50">
+          <div className="border-r border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+            Your Values
+          </div>
+          <div className="border-r border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+            Your Values
+          </div>
+          <div className="px-3 py-2 text-sm font-semibold text-slate-700">Your Values</div>
+        </div>
+        <div className="space-y-0">
+          {valueRows.map((row, index) => (
+            <div key={index} className="grid grid-cols-3 border-t border-slate-200">
+              {row.map((fieldId, fieldIndex) => (
+                <input
+                  key={fieldId}
+                  {...register(fieldId)}
+                  className={`bg-white px-3 py-2 text-sm text-slate-900 outline-none ${
+                    fieldIndex < 2 ? "border-r border-slate-200" : ""
+                  }`}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PastYearFields({ register }: CustomFieldBaseProps) {
+  const sectionTwoAccomplishments = [
+    "past_biggest_accomplishments",
+    "past_achieve_how",
+    "past_helped_success",
+  ] as const;
+
+  const sectionTwoChallenges = [
+    "past_biggest_challenges",
+    "past_overcome_help",
+    "past_learned_overcoming",
+  ] as const;
+
+  const sectionThree = [
+    "past_wisest_decision",
+    "past_biggest_lesson",
+    "past_biggest_risk",
+    "past_biggest_surprise",
+    "past_selfless_thing",
+    "past_biggest_accomplishment",
+  ] as const;
+
+  const sectionFour = [
+    "past_most_proud",
+    "past_people_influenced_you",
+    "past_people_you_influenced",
+    "past_not_accomplish",
+    "past_best_discovered",
+    "past_most_grateful",
+  ] as const;
+
+  const sectionFive = [
+    "past_not_procrastinate",
+    "past_draw_energy",
+    "past_mistakes_learned",
+    "past_most_important_lesson",
+    "past_new_things_discovered",
+    "past_leave_world_better",
+  ] as const;
+
+  const labels: Record<string, string> = {
+    past_best_moments: "The best moments",
+    past_forgiveness: "Forgiveness",
+    past_letting_go: "Letting go",
+    past_biggest_accomplishments: "List your greatest accomplishments from last year here.",
+    past_achieve_how: "What have you done to achieve these?",
+    past_helped_success: "Who helped you achieved these successes? How?",
+    past_biggest_challenges: "List your three biggest challenges from last year here.",
+    past_overcome_help: "Who or what helped you overcome these challenges?",
+    past_learned_overcoming:
+      "What have you learned about yourself while overcoming these challenges?",
+    past_wisest_decision: "The wisest decision I made.",
+    past_biggest_lesson: "The biggest lesson I learned.",
+    past_biggest_risk: "The biggest risk I took.",
+    past_biggest_surprise: "The biggest surprise by product of the year.",
+    past_selfless_thing: "The most important thing I selflessly did for others.",
+    past_biggest_accomplishment: "The biggest accomplishment.",
+    past_most_proud: "What are you the most proud of?",
+    past_people_influenced_you: "Who are the three people who influenced you the most?",
+    past_people_you_influenced: "Who are the three people you influenced the most?",
+    past_not_accomplish: "What were you not able to accomplish?",
+    past_best_discovered: "What is the best thing you have discovered about yourself?",
+    past_most_grateful: "What are you the most grateful for?",
+    past_not_procrastinate: "This year I will not procrastinate any more on.",
+    past_draw_energy: "This year I will draw the most energy from.",
+    past_mistakes_learned: "What mistakes I made this year? What did I learn from them?",
+    past_most_important_lesson: "The most important lesson I learnt in past year.",
+    past_new_things_discovered: "What new things did I discover about myself?",
+    past_leave_world_better:
+      "What did you do this year to leave the world in a better shape than you found it?",
+  };
+
+  const renderField = (id: string) => (
+    <label key={id} className="flex flex-col gap-2">
+      <span className="text-sm font-semibold text-slate-700">{labels[id]}</span>
+      <textarea
+        {...register(id)}
+        rows={5}
+        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+      />
+    </label>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3 text-sm leading-relaxed text-slate-700">
+        <h3 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+          THE PAST YEAR
+        </h3>
+        <div className="space-y-1">
+          <p className="text-base font-semibold">The best moments</p>
+          <p>
+            Describe the greatest and most memorable, joyful moments from last year.
+            Draw them on this sheet. How did you feel? Who was there with you? What
+            were you doing? What kind of smells, sounds or tastes do you remember?
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {renderField("past_best_moments")}
+        {renderField("past_forgiveness")}
+        {renderField("past_letting_go")}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-base font-semibold text-slate-800">
+          Three of my biggest accomplishments
+        </p>
+        {sectionTwoAccomplishments.map((id) => renderField(id))}
+        <p className="pt-2 text-base font-semibold text-slate-800">
+          Three of my biggest challenges
+        </p>
+        {sectionTwoChallenges.map((id) => renderField(id))}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-base font-semibold text-slate-800">
+          Three sentences about my past year
+        </p>
+        {sectionThree.map((id) => renderField(id))}
+        {sectionFour.map((id) => renderField(id))}
+        {sectionFive.map((id) => renderField(id))}
+      </div>
+    </div>
+  );
+}
+
+function YearAheadFields({ register }: CustomFieldBaseProps) {
+  const yearOverviewFields = [
+    "year_ahead_personal_family",
+    "year_ahead_work_studies_profession",
+    "year_ahead_belongings",
+    "year_ahead_relaxation_hobbies_creativity",
+    "year_ahead_friends_community",
+    "year_ahead_health_fitness",
+    "year_ahead_intellectual",
+    "year_ahead_emotional_spiritual",
+    "year_ahead_finances",
+    "year_ahead_bucket_list",
+  ] as const;
+
+  const commitGroupOne = [
+    "year_ahead_love_about_myself",
+    "year_ahead_let_go",
+    "year_ahead_achieve_most",
+    "year_ahead_pillars",
+    "year_ahead_dare_discover",
+    "year_ahead_power_to_say_no",
+  ] as const;
+
+  const commitGroupTwo = [
+    "year_ahead_cozy_surroundings",
+    "year_ahead_every_morning",
+    "year_ahead_pamper_regularly",
+    "year_ahead_places_visit",
+    "year_ahead_connect_loved_ones",
+    "year_ahead_reward_success",
+  ] as const;
+
+  const commitGroupThree = [
+    "year_ahead_not_procrastinate",
+    "year_ahead_draw_energy",
+    "year_ahead_bravest_when",
+    "year_ahead_say_no_to",
+    "year_ahead_advise_myself",
+    "year_ahead_special_because",
+  ] as const;
+
+  const labels: Record<string, string> = {
+    year_ahead_dream_big: "Dare to dream big",
+    year_ahead_personal_family: "Personal Life and Family",
+    year_ahead_work_studies_profession: "Work, Studies, Profession",
+    year_ahead_belongings: "Belongings (Home, Objects)",
+    year_ahead_relaxation_hobbies_creativity: "Relaxation, Hobbies, Creativity",
+    year_ahead_friends_community: "Friends, Community",
+    year_ahead_health_fitness: "Health, Fitness",
+    year_ahead_intellectual: "Intellectual",
+    year_ahead_emotional_spiritual: "Emotional, Spiritual",
+    year_ahead_finances: "Finances",
+    year_ahead_bucket_list: "3 Things in your Bucket List",
+    year_ahead_love_about_myself: "These two things I will love about myself.",
+    year_ahead_let_go: "I am ready to let go of these two things.",
+    year_ahead_achieve_most: "These two things I want to achieve the most.",
+    year_ahead_pillars: "These two people will be my pillars during rough times.",
+    year_ahead_dare_discover: "These two things I will dare to discover.",
+    year_ahead_power_to_say_no:
+      "These two things I will have the power to say no to.",
+    year_ahead_cozy_surroundings:
+      "These two things I will make my surroundings cozy with.",
+    year_ahead_every_morning: "These two things I will do every morning.",
+    year_ahead_pamper_regularly:
+      "These two things I will pamper myself with regularly.",
+    year_ahead_places_visit: "These two places I will visit.",
+    year_ahead_connect_loved_ones:
+      "I will connect with my loved ones in these two ways.",
+    year_ahead_reward_success:
+      "With these two presents will I reward my success.",
+    year_ahead_not_procrastinate:
+      "This year I will not procrastinate any more on...",
+    year_ahead_draw_energy: "This year I will draw the most energy from...",
+    year_ahead_bravest_when: "This year, I will be the bravest when...",
+    year_ahead_say_no_to: "This year I will say no to...",
+    year_ahead_advise_myself: "This year I advise myself to...",
+    year_ahead_special_because: "This year will be special for me because...",
+    year_ahead_word: "My word for the year ahead",
+    year_ahead_secret_wish: "Secret wish",
+  };
+
+  const renderField = (id: string, rows = 4) => (
+    <label key={id} className="flex flex-col gap-2">
+      <span className="text-sm font-semibold text-slate-700">{labels[id]}</span>
+      <textarea
+        {...register(id)}
+        rows={rows}
+        className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+      />
+    </label>
+  );
+
+  return (
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <h3 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+          THE YEAR AHEAD
+        </h3>
+        <div className="space-y-1 text-slate-700">
+          <p className="text-base font-semibold">Dare to dream big</p>
+          <p className="text-sm leading-relaxed">
+            What does the year ahead of you look like? What will happen in an Ideal
+            case? Why will it be great? Write, draw, let go of your expectations and
+            dare to dream.
+          </p>
+        </div>
+        <textarea
+          {...register("year_ahead_dream_big")}
+          rows={8}
+          className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+        />
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-1 text-slate-700">
+          <p className="text-base font-semibold">This is what my next year will be about</p>
+          <p className="text-sm">
+            Define the most important aspects of the next year in the following
+            areas. Which events will be the most important? Summarize briefly.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {yearOverviewFields.map((id) => renderField(id, 5))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-1 text-slate-700">
+          <p className="text-base font-semibold">Two commits for the year ahead</p>
+        </div>
+        <div className="space-y-4">
+          {commitGroupOne.map((id) => renderField(id, 4))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-1 text-slate-700">
+          <p className="text-base font-semibold">Two commits for the year ahead</p>
+        </div>
+        <div className="space-y-4">
+          {commitGroupTwo.map((id) => renderField(id, 4))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-1 text-slate-700">
+          <p className="text-base font-semibold">Two commits for the year ahead</p>
+        </div>
+        <div className="space-y-4">
+          {commitGroupThree.map((id) => renderField(id, 4))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-base font-semibold text-slate-800">
+              My word for the year ahead
+            </p>
+            <p className="text-sm text-slate-600">
+              Pick a word to symbolize and define the year ahead.
+            </p>
+            <textarea
+              {...register("year_ahead_word")}
+              rows={4}
+              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-base font-semibold text-slate-800">Secret wish</p>
+            <p className="text-sm text-slate-600">
+              Unleash your mind. What is your secret wish for the next year?
+            </p>
+            <textarea
+              {...register("year_ahead_secret_wish")}
+              rows={8}
+              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            />
+          </div>
+          <p className="text-center text-xl font-bold text-slate-900">
+            You are now done with planning your year.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type GoalSettingFieldsProps = CustomFieldBaseProps & {
+  onOpenGuide: () => void;
+};
+
+function GoalSettingFields({ register, onOpenGuide }: GoalSettingFieldsProps) {
+  const goalRows = [
+    {
+      key: "self",
+      title: "SELF",
+      fields: [
+        { id: "goal_self_goal", label: "1-Year Goal", rows: 3 },
+        { id: "goal_self_why", label: "Why is this Goal important?", rows: 3 },
+        { id: "goal_self_current", label: "Current situation?", rows: 3 },
+        { id: "goal_self_resources", label: "Available resources.", rows: 3 },
+      ],
+    },
+    {
+      key: "body",
+      title: "BODY",
+      fields: [
+        { id: "goal_body_goal", label: "1-Year Goal", rows: 3 },
+        { id: "goal_body_why", label: "Why is this Goal important?", rows: 3 },
+        { id: "goal_body_current", label: "Current situation?", rows: 3 },
+        { id: "goal_body_resources", label: "Available resources.", rows: 3 },
+      ],
+    },
+    {
+      key: "family",
+      title: "FAMILY",
+      fields: [
+        { id: "goal_family_goal", label: "1-Year Goal", rows: 3 },
+        { id: "goal_family_why", label: "Why is this Goal important?", rows: 3 },
+        { id: "goal_family_current", label: "Current situation?", rows: 3 },
+        { id: "goal_family_resources", label: "Available resources.", rows: 3 },
+      ],
+    },
+    {
+      key: "professional",
+      title: "PROFESSIONAL",
+      fields: [
+        { id: "goal_professional_goal", label: "1-Year Goal", rows: 3 },
+        { id: "goal_professional_why", label: "Why is this Goal important?", rows: 3 },
+        { id: "goal_professional_current", label: "Current situation?", rows: 3 },
+        { id: "goal_professional_resources", label: "Available resources.", rows: 3 },
+      ],
+    },
+  ] as const;
+
+  return (
+    <>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2 text-slate-700">
+            <h3 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+              GOAL SETTING
+            </h3>
+            <p className="text-sm leading-relaxed">
+              “The future depends on what you do today.” <span className="font-semibold">~Mahatma Gandhi</span>
+            </p>
+            <p className="text-sm text-slate-600">
+              Fill one category at a time. Each section follows the same order from
+              the planner page: goal, why it matters, current situation, and
+              available resources.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenGuide}
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400"
+          >
+            View goal-setting guide
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          {goalRows.map((row) => (
+            <section
+              key={row.key}
+              className="rounded-3xl border border-slate-200 bg-white p-5"
+            >
+              <div className="mb-4 inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-bold tracking-[0.15em] text-slate-700">
+                {row.title}
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {row.fields.map((field) => (
+                  <label key={field.id} className="flex flex-col gap-2">
+                    <span className="text-sm font-semibold text-slate-700">
+                      {field.label}
+                    </span>
+                    <textarea
+                      {...register(field.id)}
+                      rows={5}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    />
+                  </label>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+type GoalSettingGuideOverlayProps = {
+  onDismiss: () => void;
+};
+
+function GoalSettingGuideOverlay({ onDismiss }: GoalSettingGuideOverlayProps) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6">
+      <div
+        className="fixed inset-0 bg-white/80 backdrop-blur-sm"
+        onClick={onDismiss}
+      />
+      <div className="relative mx-auto mt-4 w-full max-w-5xl rounded-[32px] bg-white p-8 shadow-2xl sm:mt-8">
+        <div className="space-y-5 text-slate-700">
+          <div className="flex items-start justify-between gap-4">
+            <h3 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+              VALUE OF GOAL SETTING
+            </h3>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400"
+            >
+              Close
+            </button>
+          </div>
+
+          <p>
+            When you look at all the people around you, something becomes obvious:
+            Certain individuals are always more successful than others. And not only
+            are they more successful, they&apos;re more focused, energetic,
+            enthusiastic, and confident.
+          </p>
+          <p>
+            The more you invest in visualizing, committing to, and working toward a
+            bigger future, the bigger that future automatically becomes. Life itself
+            operates according to investment and returns. Those who invest in their
+            personal future get big rewards. Those who do not invest get little or
+            nothing.
+          </p>
+          <p>
+            Those who continually set goals and track them over the course of their
+            life are more likely to achieve them. Goal setting and goal tracking
+            work, but it involves commitment. It requires that you take yourself and
+            your dreams seriously. It also involves concentration and effort over the
+            course of your life. But once you get into the habit, it becomes easier
+            and easier. Here&apos;s how:
+          </p>
+
+          <div className="space-y-3 text-sm leading-relaxed">
+            <p>
+              <span className="font-semibold text-slate-900">Visualize your future:</span>{" "}
+              All goal setting starts by being willing to tell yourself what you want
+              in all of the different situations in your life. Be willing to
+              visualize everything: your health, appearance, abilities, relations,
+              wealth, contributions, impact, and reputation. Anyone can do this, but
+              it does require that you tell the truth.
+            </p>
+            <p>
+              <span className="font-semibold text-slate-900">Write your future:</span>{" "}
+              Your writing hand is connected to your brain. Whatever you write on
+              paper, positive or negative, your brain takes seriously. Therefore,
+              always write down positive things that will increasingly make your
+              future bigger than your past. Be very specific.
+            </p>
+            <p>
+              <span className="font-semibold text-slate-900">Time yourself:</span>{" "}
+              Tell your brain when you want the achievements to happen. With
+              deadlines, your brain responds by giving you a sense of focus and
+              motivation.
+            </p>
+            <p>
+              <span className="font-semibold text-slate-900">Measure yourself:</span>{" "}
+              With each goal, provide a measurement. Specify the actual achievement
+              that will prove to you and others that the goal has been achieved. The
+              clearer and more specific the measurement, the more motivating the
+              goal.
+            </p>
+            <p>
+              <span className="font-semibold text-slate-900">Check your progress:</span>{" "}
+              Check your goals on a daily, weekly, monthly, and quarterly basis. By
+              doing this, you not only visualize your future, you actually live it.
+            </p>
+            <p>
+              <span className="font-semibold text-slate-900">Report your progress:</span>{" "}
+              Surround yourself with an accountability community of other goal
+              achievers where you continually report your progress to one another on
+              a scheduled basis.
+            </p>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="rounded-xl bg-brand px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-dark"
+            >
+              Start filling goals
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type QuarterlyPlannerFieldsProps = CustomFieldBaseProps & {
+  setValue: UseFormSetValue<StepFormValues>;
+  watch: UseFormWatch<StepFormValues>;
+};
+
+function QuarterlyPlannerFields({
+  register,
+  setValue,
+  watch,
+}: QuarterlyPlannerFieldsProps) {
+  const habits = [
+    "quarter_habit_1",
+    "quarter_habit_2",
+    "quarter_habit_3",
+    "quarter_habit_4",
+  ] as const;
+
+  const priorities = [
+    ["quarter_priority_do_1", "quarter_priority_why_1", "quarter_priority_impact_1"],
+    ["quarter_priority_do_2", "quarter_priority_why_2", "quarter_priority_impact_2"],
+    ["quarter_priority_do_3", "quarter_priority_why_3", "quarter_priority_impact_3"],
+    ["quarter_priority_do_4", "quarter_priority_why_4", "quarter_priority_impact_4"],
+    ["quarter_priority_do_5", "quarter_priority_why_5", "quarter_priority_impact_5"],
+  ] as const;
+
+  const books = [
+    ["quarter_book_1", "quarter_takeaway_1", "quarter_first_action_1"],
+    ["quarter_book_2", "quarter_takeaway_2", "quarter_first_action_2"],
+    ["quarter_book_3", "quarter_takeaway_3", "quarter_first_action_3"],
+  ] as const;
+
+  const bucketList = [
+    ["quarter_bucket_1", "quarter_bucket_done_1", "quarter_bucket_when_1"],
+    ["quarter_bucket_2", "quarter_bucket_done_2", "quarter_bucket_when_2"],
+    ["quarter_bucket_3", "quarter_bucket_done_3", "quarter_bucket_when_3"],
+    ["quarter_bucket_4", "quarter_bucket_done_4", "quarter_bucket_when_4"],
+    ["quarter_bucket_5", "quarter_bucket_done_5", "quarter_bucket_when_5"],
+  ] as const;
+
+  return (
+    <div className="space-y-8">
+      <div className="space-y-3 text-slate-700">
+        <h3 className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+          QUARTERLY PLANNER
+        </h3>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <p className="text-base font-semibold text-slate-800">Habits for the Quarter</p>
+          <p className="text-sm text-slate-600">
+            It takes 21 Days to create a Habit, pick one habit at a time
+          </p>
+        </div>
+        <div className="space-y-3">
+          {habits.map((id, index) => (
+            <label key={id} className="flex items-start gap-3">
+              <span className="pt-3 text-sm font-semibold text-slate-700">
+                {index + 1}.
+              </span>
+              <textarea
+                {...register(id)}
+                rows={2}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <p className="text-base font-semibold text-slate-800">Think Time Priorities</p>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50">
+            <div className="border-r border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+              What Will You Do?
+            </div>
+            <div className="border-r border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+              Why Will You Do It?
+            </div>
+            <div className="px-3 py-2 text-sm font-semibold text-slate-700">
+              What Impact Do You Expect?
+            </div>
+          </div>
+          <div>
+            {priorities.map((row, index) => (
+              <div key={index} className="grid grid-cols-3 border-t border-slate-200">
+                {row.map((fieldId, fieldIndex) => (
+                  <textarea
+                    key={fieldId}
+                    {...register(fieldId)}
+                    rows={3}
+                    className={`min-h-[96px] resize-none bg-white px-3 py-2 text-sm text-slate-900 outline-none ${
+                      fieldIndex < 2 ? "border-r border-slate-200" : ""
+                    }`}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+        <label className="flex flex-col gap-2">
+          <span className="text-sm font-semibold text-slate-700">
+            Number One Commitment Of High Value:
+          </span>
+          <textarea
+            {...register("quarter_commitment")}
+            rows={3}
+            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          />
+        </label>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <p className="text-base font-semibold text-slate-800">
+            Book Reading List For The Quarter
+          </p>
+          <p className="text-sm text-slate-600">
+            Read at least 1 book this quarter. Remember readers make leaders.
+          </p>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50">
+            <div className="border-r border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+              Book
+            </div>
+            <div className="border-r border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+              Biggest Takeaways
+            </div>
+            <div className="px-3 py-2 text-sm font-semibold text-slate-700">
+              First Action
+            </div>
+          </div>
+          <div>
+            {books.map((row, index) => (
+              <div key={index} className="grid grid-cols-3 border-t border-slate-200">
+                {row.map((fieldId, fieldIndex) => (
+                  <textarea
+                    key={fieldId}
+                    {...register(fieldId)}
+                    rows={3}
+                    className={`min-h-[88px] resize-none bg-white px-3 py-2 text-sm text-slate-900 outline-none ${
+                      fieldIndex < 2 ? "border-r border-slate-200" : ""
+                    }`}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <p className="text-2xl font-bold uppercase tracking-wide text-slate-900">
+            BUCKET LIST
+          </p>
+          <p className="text-sm text-slate-600">
+            Create your bucket list to start executing and seeing amazing results:
+          </p>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="grid grid-cols-[minmax(0,1fr)_220px] border-b border-slate-200 bg-slate-50">
+            <div className="border-r border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+              Bucket List
+            </div>
+            <div className="px-3 py-2 text-sm font-semibold text-slate-700">By When?</div>
+          </div>
+          <div>
+            {bucketList.map((row, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-[minmax(0,1fr)_220px] border-t border-slate-200"
+              >
+                <div className="flex items-start gap-3 border-r border-slate-200 px-3 py-2">
+                  <input
+                    type="hidden"
+                    {...register(row[1])}
+                  />
+                  <input
+                    type="checkbox"
+                    checked={watch(row[1]) === "true"}
+                    onChange={(event) =>
+                      setValue(row[1], event.target.checked ? "true" : "false")
+                    }
+                    className="mt-1 h-4 w-4 rounded border-slate-300"
+                  />
+                  <textarea
+                    {...register(row[0])}
+                    rows={2}
+                    className="min-h-[64px] w-full resize-none bg-white text-sm text-slate-900 outline-none"
+                  />
+                </div>
+                <textarea
+                  {...register(row[2])}
+                  rows={2}
+                  className="min-h-[64px] resize-none bg-white px-3 py-2 text-sm text-slate-900 outline-none"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -318,32 +1288,75 @@ function VisionQuadrantsFields({ register }: CustomFieldBaseProps) {
   const quadrants = [
     {
       id: "vision_self",
-      title: "Self",
-      prompt: "Inner world, learning, spirituality, expression.",
+      title: "SELF",
     },
     {
       id: "vision_body",
-      title: "Body",
-      prompt: "Movement, nourishment, recovery, vitality.",
+      title: "BODY",
     },
     {
       id: "vision_family",
-      title: "Family",
-      prompt: "Relationships, rituals, shared traditions.",
+      title: "FAMILY",
     },
     {
       id: "vision_professional",
-      title: "Professional",
-      prompt: "Craft, leadership, impact, wealth.",
+      title: "PROFESSIONAL",
     },
   ] as const;
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-600">
-        Use each quadrant to describe what “vividly alive” looks like in that area.
-        Write in the present tense and be specific about how it feels.
-      </p>
+      <div className="space-y-3 text-sm leading-relaxed text-slate-700">
+        <p>
+          <span className="font-semibold">
+            VISION BOARD - A visualization tool which represents your dreams,
+            aspirations
+          </span>
+          {" "}
+          Creating a <span className="font-semibold">Vision Board</span> is like{" "}
+          <span className="font-semibold">planting a seed. The ideas and intentions</span>{" "}
+          are in your mind, and <span className="font-semibold">your vision board</span>{" "}
+          is a <span className="font-semibold">tool to nurture them.</span>
+        </p>
+
+        <div className="space-y-1">
+          <p className="font-semibold">How to create your Vision Board</p>
+          <p>1. Work out the things you want to include, for example.</p>
+          <p className="pl-5">a. Places you want to visit</p>
+          <p className="pl-5">b. People and quotes that inspire you</p>
+          <p className="pl-5">c. Your health and wellness aspirations</p>
+          <p className="pl-5">d. Profession, career and business goals</p>
+          <p>2. Find pictures and words that portray your vision.</p>
+          <p>
+            3. Draw them and stick the images on your vision board or chart paper.
+          </p>
+          <p>
+            4. Place your vision board at a place where you will see it every day
+            and manifest your future.
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <p className="font-semibold">Tips to Create an Empowering Vision Board</p>
+          <p>
+            • Use this table to depict your dreams and goals, your ideas of life
+          </p>
+          <p>• Hand write your goals, it would have a much better impact</p>
+          <p>
+            • Find pictures that represent or symbolize your experiences, feelings,
+            and possessions you want to attract into your life
+          </p>
+          <p>
+            • Avoid clutter - Keep your board neat by being selective on what you put
+            on your board
+          </p>
+          <p>• Add the date on which you make your Vision Board</p>
+          <p>
+            • Last, but not the least...{" "}
+            <span className="font-semibold">Be yourself... Be Realistic... Be honest!!</span>
+          </p>
+        </div>
+      </div>
       <div className="rounded-[32px] border border-slate-100 bg-gradient-to-br from-white to-slate-50 p-1">
         <div className="grid grid-cols-2 gap-px rounded-[28px] bg-slate-200/60">
           {quadrants.map((quadrant) => (
@@ -354,7 +1367,6 @@ function VisionQuadrantsFields({ register }: CustomFieldBaseProps) {
               <span className="text-sm font-semibold text-slate-800">
                 {quadrant.title}
               </span>
-              <span className="text-xs text-slate-500">{quadrant.prompt}</span>
               <textarea
                 {...register(quadrant.id)}
                 rows={4}
@@ -417,10 +1429,28 @@ function WheelOfLifeFields({ register, watch }: WheelFieldProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="space-y-5">
-        <p className="text-sm text-slate-600">
-          Drag the sliders to rate each quadrant from 1-10. The wheel fills in live so
-          you can instantly spot balance or tension.
-        </p>
+        <div className="space-y-3 text-sm leading-relaxed text-slate-700">
+          <p>
+            <span className="font-semibold">INSTRUCTIONS:</span> Reflect &amp;
+            self-evaluate... How satisfied are you in each quadrant?
+          </p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              If the center is 0 and the outer circle 10, put a number beside each
+              label, and color in your <span className="font-semibold">satisfaction</span>{" "}
+              with each slice.
+            </li>
+            <li>
+              The filled in circle represents{" "}
+              <span className="font-semibold">your current view</span> of your
+              {" "}‘Wheel of Life’.
+            </li>
+            <li>
+              How evenly is it spinning? Where do you need to shift your energy /
+              focus to <span className="font-semibold">or</span> from?
+            </li>
+          </ul>
+        </div>
         <div className="space-y-4">
           {quadrants.map((quadrant, index) => {
             const value = ratings[index].value;

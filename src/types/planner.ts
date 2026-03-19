@@ -21,7 +21,12 @@ export type PlannerField = {
 export type CustomStepLayout =
   | "commitmentLetter"
   | "visionQuadrants"
-  | "wheelOfLife";
+  | "wheelOfLife"
+  | "purposeInLife"
+  | "pastYearReview"
+  | "yearAheadReview"
+  | "goalSettingMatrix"
+  | "quarterlyPlanner";
 
 export type PlannerStep = {
   id: string;
@@ -35,14 +40,18 @@ export type PlannerStep = {
 
 export type PlannerEntry = Record<string, string>;
 
+export type WeeklyPlanData = Record<string, string>;
+
 export type WeeklyPlan = {
   id: string;
   year: number;
   month: number;
   weekOfMonth: number;
+  startDate: string;
   focus: string;
   wins: string[];
   scheduleNotes: string;
+  data: WeeklyPlanData;
   createdAt: string;
 };
 

@@ -3,15 +3,21 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-provider";
 import { useTheme } from "@/contexts/theme-provider";
+import { useConsent } from "@/hooks/useConsent";
 import { themePresets, themeIds } from "@/lib/themes";
 import { cn } from "@/lib/utils";
-import { softDeleteUserData, insertAuditLog } from "@/lib/supabase/repositories";
+import {
+  hardDeleteUserData,
+  insertAuditLog,
+  softDeleteUserData,
+} from "@/lib/supabase/repositories";
 import ExportButton from "@/components/export/export-button";
 import ConsentBanner from "@/components/export/consent-banner";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { user, signOut } = useAuth();
+  const { canAcknowledgeRetention } = useConsent();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -19,11 +25,19 @@ export default function SettingsPage() {
     if (!user?.id) return;
     setDeleting(true);
     try {
-      await softDeleteUserData(user.id);
+      if (canAcknowledgeRetention) {
+        await softDeleteUserData(user.id);
+      } else {
+        await hardDeleteUserData(user.id);
+      }
       await insertAuditLog({
         actorId: user.id,
         action: "soft_delete_initiated",
         resource: "all_data",
+        metadata: {
+          retentionConsentGranted: canAcknowledgeRetention,
+          deletionMode: canAcknowledgeRetention ? "soft_delete" : "hard_delete",
+        },
       });
       await signOut();
     } catch (err) {
@@ -78,7 +92,7 @@ export default function SettingsPage() {
           Data & Privacy
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Manage your consent preferences and export your data.
+          Define how admins may handle your data and export your own records.
         </p>
 
         <div className="mt-4 space-y-6">
@@ -104,9 +118,10 @@ export default function SettingsPage() {
               Account Deletion
             </h3>
             <p className="mb-3 text-xs text-slate-500">
-              Request deletion of your Life Plan data. Your data will be
-              soft-deleted and can be restored by an admin within the retention
-              period. Your account will remain but all plan data will be hidden.
+              Request deletion of your Life Plan data. If you allow retention,
+              your data will be soft-deleted and can be restored by an admin
+              within the retention period. If retention is not allowed, your
+              plan data will be permanently deleted.
             </p>
             <button
               onClick={() => setShowDeleteModal(true)}
@@ -125,9 +140,9 @@ export default function SettingsPage() {
               Confirm Data Deletion
             </h3>
             <p className="mt-2 text-sm text-slate-600">
-              This will soft-delete all your Life Plan data (planner entries,
-              weekly plans, and goal scores). You will be signed out. An admin
-              can restore your data within the retention period.
+              {canAcknowledgeRetention
+                ? "This will soft-delete all your Life Plan data (planner entries, weekly plans, and goal scores). You will be signed out. An admin can restore your data within the retention period."
+                : "This will permanently delete all your Life Plan data (planner entries, weekly plans, goal scores, and consent records). You will be signed out and the deleted plan data cannot be restored by an admin."}
             </p>
             <div className="mt-6 flex gap-3">
               <button

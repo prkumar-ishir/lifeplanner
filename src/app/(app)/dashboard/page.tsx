@@ -37,6 +37,7 @@ export default function DashboardPage() {
     }
 
     return goalStep.fields
+      .filter((field) => field.id.endsWith("_goal"))
       .map((field) => {
         const rawValue = String(goalEntries[field.id] ?? "").trim();
         if (!rawValue) {
@@ -44,7 +45,7 @@ export default function DashboardPage() {
         }
         return {
           id: field.id,
-          label: field.label.replace(/ goal$/i, ""),
+          label: field.label.replace(/\s*-\s*1-Year Goal$/i, ""),
           summary: rawValue,
         };
       })
@@ -80,7 +81,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pt-4">
       {/* Top layout: left column stacks rhythm + journey progress, right column shows goals. */}
       <section className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="space-y-6">
@@ -212,10 +213,10 @@ type GoalSpotlightRowProps = {
 };
 
 const goalColorMap: Record<string, string> = {
-  goal_self: "#a855f7",
-  goal_body: "#f97316",
-  goal_family: "#0ea5e9",
-  goal_professional: "#22c55e",
+  goal_self_goal: "#a855f7",
+  goal_body_goal: "#f97316",
+  goal_family_goal: "#0ea5e9",
+  goal_professional_goal: "#22c55e",
 };
 
 /**

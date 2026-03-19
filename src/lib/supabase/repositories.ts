@@ -2,8 +2,8 @@ import type {
   PlannerEntry,
   PlannerEntryPayload,
   WeeklyPlan,
+  WeeklyPlanData,
   WeeklyPlanPayload,
-  GoalScore,
 } from "@/types/planner";
 import type {
   AuditAction,
@@ -17,6 +17,43 @@ import type {
 } from "@/types/admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "./client";
+
+const WEEKLY_PLAN_DATA_MARKER = "\n\n[[LP_WEEKLY_DATA]]";
+
+function encodeWeeklyScheduleNotes(
+  scheduleNotes: string,
+  data: WeeklyPlanData
+) {
+  return `${scheduleNotes}${WEEKLY_PLAN_DATA_MARKER}${encodeURIComponent(
+    JSON.stringify(data)
+  )}`;
+}
+
+function decodeWeeklyScheduleNotes(scheduleNotes: string | null) {
+  const raw = scheduleNotes ?? "";
+  const markerIndex = raw.indexOf(WEEKLY_PLAN_DATA_MARKER);
+  if (markerIndex === -1) {
+    return {
+      scheduleNotes: raw,
+      data: {} as WeeklyPlanData,
+    };
+  }
+
+  const visible = raw.slice(0, markerIndex).trimEnd();
+  const encoded = raw.slice(markerIndex + WEEKLY_PLAN_DATA_MARKER.length);
+
+  try {
+    return {
+      scheduleNotes: visible,
+      data: JSON.parse(decodeURIComponent(encoded)) as WeeklyPlanData,
+    };
+  } catch {
+    return {
+      scheduleNotes: visible,
+      data: {} as WeeklyPlanData,
+    };
+  }
+}
 
 // Helper that lazily resolves a Supabase client and skips work when credentials are missing.
 async function withClient<T>(callback: (client: SupabaseClient) => Promise<T>) {
@@ -71,25 +108,42 @@ export async function persistWeeklyPlan(payload: WeeklyPlanPayload) {
   }
 
   return withClient(async (client) => {
+    const baseRow = {
+      id: payload.id,
+      user_id: payload.userId,
+      year: payload.year,
+      month: payload.month,
+      week_of_month: payload.weekOfMonth,
+      focus: payload.focus,
+      wins: payload.wins,
+      schedule_notes: encodeWeeklyScheduleNotes(payload.scheduleNotes, payload.data),
+      created_at: payload.createdAt,
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await client
       .from("weekly_plans")
       .upsert(
         {
-          id: payload.id,
-          user_id: payload.userId,
-          year: payload.year,
-          month: payload.month,
-          week_of_month: payload.weekOfMonth,
-          focus: payload.focus,
-          wins: payload.wins,
-          schedule_notes: payload.scheduleNotes,
-          created_at: payload.createdAt,
-          updated_at: new Date().toISOString(),
+          ...baseRow,
+          data: payload.data,
         },
         { onConflict: "user_id,id" }
       )
       .select()
       .single();
+
+    if (error && error.message?.includes("data")) {
+      const fallback = await client
+        .from("weekly_plans")
+        .upsert(baseRow, { onConflict: "user_id,id" })
+        .select()
+        .single();
+      if (fallback.error) {
+        throw fallback.error;
+      }
+      return fallback.data;
+    }
 
     if (error) {
       throw error;
@@ -112,6 +166,7 @@ type WeeklyPlanRow = {
   focus: string;
   wins: string[];
   schedule_notes: string | null;
+  data: WeeklyPlanData | null;
   created_at: string;
   updated_at: string;
 };
@@ -124,7 +179,7 @@ export async function fetchPlannerEntries(userId: string) {
   if (!userId) return {};
   const rows =
     (await withClient(async (client) => {
-      let query = client
+      const query = client
         .from("planner_entries")
         .select("step_id,data")
         .eq("user_id", userId);
@@ -174,14 +229,17 @@ export async function fetchWeeklyPlans(userId: string) {
     })) ?? [];
 
   return rows.reduce<Record<string, WeeklyPlan>>((acc, row) => {
+    const decoded = decodeWeeklyScheduleNotes(row.schedule_notes);
     acc[row.id] = {
       id: row.id,
       year: row.year,
       month: row.month,
       weekOfMonth: row.week_of_month,
+      startDate: (row.data ?? decoded.data).start_date ?? "",
       focus: row.focus,
       wins: row.wins,
-      scheduleNotes: row.schedule_notes ?? "",
+      scheduleNotes: decoded.scheduleNotes,
+      data: row.data ?? decoded.data,
       createdAt: row.created_at,
     };
     return acc;
@@ -383,6 +441,18 @@ export async function fetchUserConsent(userId: string): Promise<ConsentRecord[]>
   );
 }
 
+export async function fetchAllConsentRecords(): Promise<ConsentRecord[]> {
+  return (
+    (await withClient(async (client) => {
+      const { data, error } = await client
+        .from("consent_records")
+        .select("*");
+      if (error) throw error;
+      return data as ConsentRecord[];
+    })) ?? []
+  );
+}
+
 export async function upsertConsent(
   userId: string,
   consentType: ConsentType,
@@ -540,6 +610,22 @@ export async function softDeleteUserData(userId: string) {
         .update({ deleted_at: now })
         .eq("user_id", userId)
         .is("deleted_at", null),
+    ]);
+    for (const { error } of results) {
+      if (error) throw error;
+    }
+    return true;
+  });
+}
+
+export async function hardDeleteUserData(userId: string) {
+  if (!userId) return null;
+  return withClient(async (client) => {
+    const results = await Promise.all([
+      client.from("planner_entries").delete().eq("user_id", userId),
+      client.from("weekly_plans").delete().eq("user_id", userId),
+      client.from("goal_scores").delete().eq("user_id", userId),
+      client.from("consent_records").delete().eq("user_id", userId),
     ]);
     for (const { error } of results) {
       if (error) throw error;

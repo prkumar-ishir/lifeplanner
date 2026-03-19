@@ -7,16 +7,20 @@ import {
   insertAuditLog,
   fetchAllUserDataForExport,
   insertDataExport,
+  fetchAllConsentRecords,
 } from "@/lib/supabase/repositories";
 import { generateLifePlanPdf } from "@/lib/pdf/generate-life-plan-pdf";
 import { plannerFlow } from "@/data/plannerFlow";
-import type { EngagementMetric } from "@/types/admin";
+import type { ConsentType, EngagementMetric } from "@/types/admin";
 import MetricCard from "@/components/admin/metric-card";
 import EmployeeTable from "@/components/admin/employee-table";
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
   const [metrics, setMetrics] = useState<EngagementMetric[]>([]);
+  const [consentMap, setConsentMap] = useState<
+    Record<string, Partial<Record<ConsentType, boolean>>>
+  >({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,14 +28,29 @@ export default function AdminDashboardPage() {
 
     insertAuditLog({ actorId: user.id, action: "admin_view_metrics" });
 
-    fetchEngagementMetrics()
-      .then(setMetrics)
+    Promise.all([fetchEngagementMetrics(), fetchAllConsentRecords()])
+      .then(([metricRows, consentRows]) => {
+        setMetrics(metricRows);
+        const nextConsentMap: Record<
+          string,
+          Partial<Record<ConsentType, boolean>>
+        > = {};
+        for (const record of consentRows) {
+          nextConsentMap[record.user_id] ??= {};
+          nextConsentMap[record.user_id][record.consent_type] = record.granted;
+        }
+        setConsentMap(nextConsentMap);
+      })
       .finally(() => setLoading(false));
   }, [user?.id]);
 
   const handleExport = useCallback(
     async (targetUserId: string, email: string) => {
       if (!user?.id) return;
+      const consent = consentMap[targetUserId];
+      if (consent?.data_collection !== true || consent?.data_export !== true) {
+        return;
+      }
       try {
         const data = await fetchAllUserDataForExport(targetUserId);
         const blob = await generateLifePlanPdf({
@@ -66,7 +85,7 @@ export default function AdminDashboardPage() {
         console.error("Export failed:", err);
       }
     },
-    [user?.id]
+    [consentMap, user?.id]
   );
 
   if (loading) {
@@ -140,7 +159,11 @@ export default function AdminDashboardPage() {
         <h2 className="mb-4 text-sm font-semibold text-slate-700">
           Employee Engagement
         </h2>
-        <EmployeeTable metrics={metrics} onExport={handleExport} />
+        <EmployeeTable
+          metrics={metrics}
+          consentMap={consentMap}
+          onExport={handleExport}
+        />
       </div>
     </div>
   );

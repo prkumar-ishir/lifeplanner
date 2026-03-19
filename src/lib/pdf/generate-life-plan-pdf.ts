@@ -16,6 +16,16 @@ const PAGE_WIDTH = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const LINE_HEIGHT = 7;
 
+/** Strip emojis and other non-ASCII symbols that jsPDF cannot render. */
+function stripEmoji(text: string): string {
+  return text
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, "")
+    .replace(/[\u{2600}-\u{27BF}]/gu, "")
+    .replace(/[\u{FE00}-\u{FEFF}]/gu, "")
+    .replace(/[\u{200D}\u{20E3}\u{FE0F}]/gu, "")
+    .trim();
+}
+
 function addHeader(doc: jsPDF, title: string) {
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
@@ -127,7 +137,7 @@ export async function generateLifePlanPdf(params: PdfParams): Promise<Blob> {
     if (!entry) continue;
 
     doc.addPage();
-    addHeader(doc, `${step.icon} ${step.title}`);
+    addHeader(doc, stripEmoji(step.title));
 
     y = 45;
     doc.setFontSize(9);

@@ -46,6 +46,12 @@ export default function SignInPage() {
           return;
         }
         await signUpWithPassword({ email, password });
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            "lifePlannerOnboardingPendingEmail",
+            email.trim().toLowerCase()
+          );
+        }
         setMessage(
           "Account created. Redirecting you now—check your inbox only if your project still requires confirmation."
         );
